@@ -1,94 +1,329 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { IMessageSDK, Message } from '@photon-ai/imessage-kit';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const SAVE_DIR = path.resolve(__dirname, 'saved-images');
 
-// Normalize phone number (remove spaces, parentheses, dashes)
+// Load environment variables from root .env
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const SAVE_DIR = path.resolve(__dirname, 'saved-images');
+const HISTORY_FILE = path.resolve(__dirname, '.message-history.json');
+
+// Configuration from environment
+const TARGET_NUMBER = process.env.IMESSAGE_TARGET_NUMBER || '';
+const WATCH_MODE = process.env.IMESSAGE_WATCH_MODE === 'true';
+const AUTO_PROCESS = process.env.IMESSAGE_AUTO_PROCESS === 'true';
+
+// Message history to track processed messages
+interface MessageHistory {
+  processedHashes: Set<string>;
+  lastProcessed: string;
+}
+
+let history: MessageHistory = {
+  processedHashes: new Set<string>(),
+  lastProcessed: new Date().toISOString()
+};
+
+/**
+ * Generate a hash for a message to track if it's been processed
+ */
+function hashMessage(message: Message): string {
+  const data = `${message.id}-${message.date.toISOString()}-${message.sender}`;
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+/**
+ * Generate a hash for an attachment
+ */
+function hashAttachment(attachmentPath: string, messageId: string): string {
+  try {
+    const stats = fs.statSync(attachmentPath);
+    const data = `${attachmentPath}-${stats.size}-${stats.mtimeMs}-${messageId}`;
+    return crypto.createHash('sha256').update(data).digest('hex');
+  } catch (error) {
+    // Fallback if file stats fail
+    return crypto.createHash('sha256').update(`${attachmentPath}-${messageId}`).digest('hex');
+  }
+}
+
+/**
+ * Load message history from disk
+ */
+function loadHistory(): void {
+  try {
+    if (fs.existsSync(HISTORY_FILE)) {
+      const data = fs.readFileSync(HISTORY_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      history.processedHashes = new Set(parsed.processedHashes || []);
+      history.lastProcessed = parsed.lastProcessed || new Date().toISOString();
+      console.log(`📋 Loaded history: ${history.processedHashes.size} processed messages`);
+    }
+  } catch (error) {
+    console.error('⚠️  Error loading history:', error);
+    history = {
+      processedHashes: new Set<string>(),
+      lastProcessed: new Date().toISOString()
+    };
+  }
+}
+
+/**
+ * Save message history to disk
+ */
+function saveHistory(): void {
+  try {
+    const data = {
+      processedHashes: Array.from(history.processedHashes),
+      lastProcessed: history.lastProcessed
+    };
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('⚠️  Error saving history:', error);
+  }
+}
+
+/**
+ * Check if a message has already been processed
+ */
+function isProcessed(hash: string): boolean {
+  return history.processedHashes.has(hash);
+}
+
+/**
+ * Mark a message as processed
+ */
+function markAsProcessed(hash: string): void {
+  history.processedHashes.add(hash);
+  history.lastProcessed = new Date().toISOString();
+  saveHistory();
+}
+
+/**
+ * Normalize phone number (remove spaces, parentheses, dashes)
+ */
 function normalizePhoneNumber(phone: string): string {
   return phone.replace(/[\s\(\)\-]/g, '');
 }
 
-async function processAndSaveImages(fromNumber: string) {
-  const sdk = new IMessageSDK({ debug: true });
+/**
+ * Process and save images from a message
+ */
+async function processMessage(sdk: IMessageSDK, message: Message): Promise<number> {
+  const messageHash = hashMessage(message);
+  
+  // Skip if already processed
+  if (isProcessed(messageHash)) {
+    return 0;
+  }
 
-  try {
-    // Normalize the phone number to match database format
-    const normalizedNumber = normalizePhoneNumber(fromNumber);
-    console.log(`Looking for messages from: ${normalizedNumber}`);
+  // Ensure save directory exists
+  if (!fs.existsSync(SAVE_DIR)) {
+    fs.mkdirSync(SAVE_DIR, { recursive: true });
+  }
 
-    const result = await sdk.getMessages({
-      sender: normalizedNumber,
-      unreadOnly: false,
-      limit: 50
-    });
+  let imageCount = 0;
 
-    // Extract messages array from the response object
-    // The API returns { messages: [], total: number, unreadCount: number }
-    const msgs: Message[] = (result && typeof result === 'object' && 'messages' in result)
-      ? (result as any).messages || []
-      : Array.isArray(result)
-      ? result
-      : [];
+  if (message.attachments && message.attachments.length > 0) {
+    for (const att of message.attachments) {
+      if (att.mimeType?.startsWith('image/')) {
+        const attachmentHash = hashAttachment(att.path, message.id);
+        
+        // Skip if this specific attachment was already processed
+        if (isProcessed(attachmentHash)) {
+          console.log(`⏭️  Skipping duplicate image: ${path.basename(att.path)}`);
+          continue;
+        }
 
-    if (!msgs || msgs.length === 0) {
-      console.log('No messages found');
-      return;
-    }
+        try {
+          const timestamp = Date.now();
+          const ext = path.extname(att.path);
+          const filename = `receipt-${timestamp}-${path.basename(att.path, ext)}${ext}`;
+          const dest = path.join(SAVE_DIR, filename);
 
-    console.log(`Found ${msgs.length} message(s) (Total: ${(result as any)?.total || msgs.length}, Unread: ${(result as any)?.unreadCount || 0})`);
+          // Copy the file to your folder
+          fs.copyFileSync(att.path, dest);
+          console.log(`✅ Saved new image: ${filename}`);
+          imageCount++;
 
-    // Ensure local folder exists
-    if (!fs.existsSync(SAVE_DIR)) {
-      fs.mkdirSync(SAVE_DIR, { recursive: true });
-    }
+          // Mark this attachment as processed
+          markAsProcessed(attachmentHash);
 
-    let imageCount = 0;
-    for (const msg of msgs) {
-      if (msg.attachments && msg.attachments.length > 0) {
-        for (const att of msg.attachments) {
-          if (att.mimeType?.startsWith('image/')) {
+          // Auto-process with xAI if enabled
+          if (AUTO_PROCESS) {
+            console.log(`🤖 Auto-processing receipt with xAI Grok...`);
             try {
-              const filename = path.basename(att.path);
-              const dest = path.join(SAVE_DIR, filename);
-
-              // Copy the file to your folder
-              fs.copyFileSync(att.path, dest);
-              console.log(`✅ Saved image to ${dest}`);
-              imageCount++;
-
-              // Optionally reply
-              await sdk.send(normalizedNumber, {
-                text: `Got your image: ${filename}!`
-              });
-            } catch (fileError) {
-              console.error(`Error processing attachment ${att.path}:`, fileError);
+              const { exec } = await import('child_process');
+              const { promisify } = await import('util');
+              const execPromise = promisify(exec);
+              
+              const xaiDir = path.resolve(__dirname, '../xAI');
+              await execPromise(`cd ${xaiDir} && npm run process:single ${filename}`);
+              console.log(`✨ Receipt processed successfully!`);
+            } catch (processError) {
+              console.error(`⚠️  Auto-process failed:`, processError);
             }
           }
+
+          // Send acknowledgment (optional - comment out if not desired)
+          try {
+            if (message.sender && !message.isFromMe) {
+              await sdk.send(message.sender, {
+                text: `📸 Received your receipt! ${AUTO_PROCESS ? 'Processing with AI...' : 'Image saved!'}`
+              });
+            }
+          } catch (sendError) {
+            console.error('⚠️  Could not send acknowledgment:', sendError);
+          }
+
+        } catch (fileError) {
+          console.error(`❌ Error processing attachment ${att.path}:`, fileError);
         }
       }
     }
+  }
 
-    if (imageCount === 0) {
-      console.log('No images found in the messages');
-    } else {
-      console.log(`✅ Successfully processed ${imageCount} image(s)`);
+  // Mark the message as processed
+  markAsProcessed(messageHash);
+  
+  return imageCount;
+}
+
+/**
+ * Main function - continuous watching mode
+ */
+async function startWatchingMessages() {
+  console.log('\n🚀 iMessage Receipt Watcher Starting...\n');
+  console.log('Configuration:');
+  console.log(`  Target Number: ${TARGET_NUMBER || 'ALL (accept from any sender)'}`);
+  console.log(`  Watch Mode: ${WATCH_MODE ? 'CONTINUOUS' : 'ONE-TIME'}`);
+  console.log(`  Auto-Process: ${AUTO_PROCESS ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`  Save Directory: ${SAVE_DIR}`);
+  console.log('');
+
+  // Load existing history
+  loadHistory();
+
+  const sdk = new IMessageSDK({ 
+    debug: true,
+    maxConcurrent: 5,
+    scriptTimeout: 30000
+  });
+
+  if (WATCH_MODE) {
+    console.log('👀 Watching for new messages... (Press Ctrl+C to stop)\n');
+
+    // Start watching for new messages
+    sdk.startWatching({
+      onNewMessage: async (message: Message) => {
+        console.log(`\n📨 New message from ${message.sender}`);
+        
+        // Filter by target number if specified
+        if (TARGET_NUMBER) {
+          const normalizedTarget = normalizePhoneNumber(TARGET_NUMBER);
+          const normalizedSender = normalizePhoneNumber(message.sender);
+          
+          if (normalizedSender !== normalizedTarget) {
+            console.log(`⏭️  Ignoring message (not from target number)`);
+            return;
+          }
+        }
+
+        // Process the message
+        const imageCount = await processMessage(sdk, message);
+        
+        if (imageCount > 0) {
+          console.log(`✅ Processed ${imageCount} new image(s)\n`);
+        } else if (message.attachments?.length > 0) {
+          console.log(`ℹ️  No new images in this message\n`);
+        }
+      },
+      
+      onGroupMessage: async (message: Message) => {
+        console.log(`\n👥 New group message from ${message.sender} (group chat)`);
+        // You can handle group messages differently if needed
+        // For now, we'll skip group messages for receipts
+        console.log(`⏭️  Skipping group message\n`);
+      },
+      
+      onError: (error: Error) => {
+        console.error('\n❌ Watcher error:', error.message);
+      }
+    });
+
+    // Handle graceful shutdown
+    process.on('SIGINT', async () => {
+      console.log('\n\n🛑 Shutting down gracefully...');
+      sdk.stopWatching();
+      await sdk.close();
+      console.log('✅ Stopped watching. History saved.');
+      process.exit(0);
+    });
+
+    // Keep the process running
+    console.log('💡 Tip: Send a receipt image via iMessage to see it processed automatically!\n');
+    
+  } else {
+    // One-time mode: fetch recent messages
+    console.log('📥 Fetching recent messages (one-time mode)...\n');
+
+    try {
+      const filter: any = {
+        unreadOnly: false,
+        limit: 50
+      };
+
+      if (TARGET_NUMBER) {
+        filter.sender = normalizePhoneNumber(TARGET_NUMBER);
+      }
+
+      const result = await sdk.getMessages(filter);
+
+      const msgs: Message[] = (result && typeof result === 'object' && 'messages' in result)
+        ? (result as any).messages || []
+        : Array.isArray(result)
+        ? result
+        : [];
+
+      if (!msgs || msgs.length === 0) {
+        console.log('No messages found');
+        await sdk.close();
+        return;
+      }
+
+      console.log(`Found ${msgs.length} message(s)`);
+
+      let totalImages = 0;
+      for (const msg of msgs) {
+        const imageCount = await processMessage(sdk, msg);
+        totalImages += imageCount;
+      }
+
+      if (totalImages === 0) {
+        console.log('\nℹ️  No new images found in messages');
+      } else {
+        console.log(`\n✅ Successfully processed ${totalImages} new image(s)`);
+      }
+
+    } catch (err) {
+      console.error('Error while processing messages:', err);
+      if (err instanceof Error) {
+        console.error('Error details:', err.message);
+      }
+    } finally {
+      await sdk.close();
+      console.log('\n✅ Done!');
     }
-  } catch (err) {
-    console.error('Error while saving images:', err);
-    if (err instanceof Error) {
-      console.error('Error details:', err.message);
-      console.error('Stack:', err.stack);
-    }
-  } finally {
-    await sdk.close();
   }
 }
 
-// Example use
-const targetNumber = '';
-processAndSaveImages(targetNumber);
-
+// Start the watcher
+startWatchingMessages().catch(err => {
+  console.error('Fatal error:', err);
+  process.exit(1);
+});

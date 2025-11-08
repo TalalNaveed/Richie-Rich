@@ -4,7 +4,9 @@ An intelligent receipt management system that automatically extracts, processes,
 
 ## ✨ Features
 
-- 📱 **iMessage Integration** - Extract receipt images from iMessage conversations
+- 📱 **iMessage Live Monitoring** - Continuously watches for receipt images in iMessage
+- 🔄 **Auto-Processing** - Automatically sends new receipts to xAI Grok
+- 🚫 **Duplicate Prevention** - Smart hashing avoids reprocessing
 - 🤖 **AI-Powered OCR** - Use **xAI Grok Vision** to extract structured data from receipts
 - 📊 **Analytics Dashboard** - Visualize spending patterns and trends
 - 🏷️ **Auto-Categorization** - Automatically tag receipts by category
@@ -28,13 +30,12 @@ cp .env.example .env
 # 3. Verify setup
 npm run receipt:test
 
-# 4. Extract receipts from iMessage (optional)
-npm run image-extract
+# 4. Start iMessage watcher (runs continuously)
+npm run imessage:watch
 
-# 5. Process receipts
-npm run receipt:process
+# 5. Send receipt images via iMessage - they'll auto-process!
 
-# 6. Start the app
+# 6. Start the web app
 npm run dev
 ```
 
@@ -94,10 +95,16 @@ npm run lint             # Run ESLint
 npm run setup            # Full project setup
 ```
 
+### iMessage Monitoring
+
+```bash
+npm run imessage:watch        # Start continuous iMessage monitoring
+npm run imessage:once         # Process once and exit
+```
+
 ### Receipt Processing
 
 ```bash
-npm run image-extract         # Extract images from iMessage
 npm run receipt:setup         # Setup receipt processor
 npm run receipt:test          # Test receipt processor
 npm run receipt:process       # Process all receipts

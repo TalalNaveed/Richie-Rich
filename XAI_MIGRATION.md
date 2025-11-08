@@ -226,3 +226,5 @@ ls -la .env
 
 Your project now uses xAI Grok Vision for receipt processing!
 
+
+
