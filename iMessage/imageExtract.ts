@@ -111,6 +111,16 @@ function normalizePhoneNumber(phone: string): string {
 }
 
 /**
+ * Dummy function for text processing - replace with your AI logic later
+ */
+async function processTextMessage(text: string, sender: string): Promise<void> {
+  console.log(`   📝 Text message received: "${text}"`);
+  console.log(`   💡 TODO: Process with AI / pipe to your logic`);
+  // TODO: Add your text processing logic here
+  // Example: await yourAIFunction(text, sender);
+}
+
+/**
  * Process and save images from a message
  */
 async function processMessage(sdk: IMessageSDK, message: Message): Promise<number> {
@@ -120,6 +130,11 @@ async function processMessage(sdk: IMessageSDK, message: Message): Promise<numbe
   if (isProcessed(messageHash)) {
     console.log(`⏭️  Message already processed (duplicate)`);
     return 0;
+  }
+
+  // Process text if present
+  if (message.text && message.text.trim().length > 0) {
+    await processTextMessage(message.text, message.sender);
   }
 
   // Ensure save directory exists
@@ -244,6 +259,7 @@ async function startWatchingMessages() {
         console.log(`\n📨 New message from ${message.sender}`);
         console.log(`   Date: ${message.date.toISOString()}`);
         console.log(`   Read: ${message.isRead ? 'YES' : 'NO'}`);
+        console.log(`   Text: ${message.text ? `"${message.text}"` : '(none)'}`);
         console.log(`   Attachments: ${message.attachments?.length || 0}`);
         
         // Filter by target number if specified
@@ -257,20 +273,26 @@ async function startWatchingMessages() {
           }
         }
 
-        // Check for image attachments
+        // Check if message has text OR images
+        const hasText = message.text && message.text.trim().length > 0;
         const hasImages = message.attachments?.some(att => att.mimeType?.startsWith('image/'));
-        if (!hasImages) {
-          console.log(`ℹ️  No images in message\n`);
+        
+        if (!hasText && !hasImages) {
+          console.log(`ℹ️  No text or images in message\n`);
           return;
         }
 
-        console.log(`📸 Found image(s) - processing...`);
+        if (hasImages) {
+          console.log(`📸 Found image(s) - processing...`);
+        }
         
-        // Process the message
+        // Process the message (handles both text and images)
         const imageCount = await processMessage(sdk, message);
         
         if (imageCount > 0) {
           console.log(`\n✅ Processed ${imageCount} new image(s)\n`);
+        } else if (hasText && !hasImages) {
+          console.log(`\n✅ Text processed\n`);
         } else {
           console.log(`\nℹ️  No new images (duplicates skipped)\n`);
         }
