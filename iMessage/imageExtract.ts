@@ -12,11 +12,74 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const SAVE_DIR = path.resolve(__dirname, 'saved-images');
+const PROCESSED_FILE = path.resolve(__dirname, '.processed-images.json');
 
 // Configuration from environment
 const TARGET_NUMBER = process.env.IMESSAGE_TARGET_NUMBER || '';
 const AUTO_PROCESS = process.env.IMESSAGE_AUTO_PROCESS === 'true';
 const MAX_PARALLEL = parseInt(process.env.MAX_PARALLEL_PROCESSING || '5'); // Max parallel processing
+
+// Track processed images by filename
+interface ProcessedImages {
+  processedFilenames: Set<string>;
+  lastUpdated: string;
+}
+
+let processedImages: ProcessedImages = {
+  processedFilenames: new Set<string>(),
+  lastUpdated: new Date().toISOString()
+};
+
+/**
+ * Load processed images list
+ */
+function loadProcessedImages(): void {
+  try {
+    if (fs.existsSync(PROCESSED_FILE)) {
+      const data = fs.readFileSync(PROCESSED_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      processedImages.processedFilenames = new Set(parsed.processedFilenames || []);
+      processedImages.lastUpdated = parsed.lastUpdated || new Date().toISOString();
+      console.log(`📋 Loaded ${processedImages.processedFilenames.size} processed image(s)`);
+    }
+  } catch (error) {
+    processedImages = {
+      processedFilenames: new Set<string>(),
+      lastUpdated: new Date().toISOString()
+    };
+  }
+}
+
+/**
+ * Save processed images list
+ */
+function saveProcessedImages(): void {
+  try {
+    const data = {
+      processedFilenames: Array.from(processedImages.processedFilenames),
+      lastUpdated: processedImages.lastUpdated
+    };
+    fs.writeFileSync(PROCESSED_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('⚠️  Error saving processed images:', error);
+  }
+}
+
+/**
+ * Check if image filename has been processed
+ */
+function isImageProcessed(filename: string): boolean {
+  return processedImages.processedFilenames.has(filename);
+}
+
+/**
+ * Mark image as processed
+ */
+function markImageAsProcessed(filename: string): void {
+  processedImages.processedFilenames.add(filename);
+  processedImages.lastUpdated = new Date().toISOString();
+  saveProcessedImages();
+}
 
 // Normalize phone number (remove spaces, parentheses, dashes)
 function normalizePhoneNumber(phone: string): string {
@@ -42,8 +105,24 @@ async function processSingleImage(
   sender: string
 ): Promise<{ success: boolean; filename?: string; error?: string }> {
   try {
+    const filename = path.basename(att.path);
+    
+    // Check if already processed by filename
+    if (isImageProcessed(filename)) {
+      console.log(`⏭️  Skipping ${filename} - already processed`);
+      return { success: false, filename, error: 'Already processed' };
+    }
+
+    // Also check if file already exists in saved-images
+    const dest = path.join(SAVE_DIR, filename);
+    if (fs.existsSync(dest)) {
+      console.log(`⏭️  Skipping ${filename} - file already exists`);
+      markImageAsProcessed(filename); // Mark as processed
+      return { success: false, filename, error: 'File already exists' };
+    }
+
     // VALIDATE IMAGE FIRST
-    console.log(`🔍 Validating image: ${path.basename(att.path)}`);
+    console.log(`🔍 Validating image: ${filename}`);
     const validation = await validateReceiptImage(att.path);
     
     if (!validation.isValid) {
@@ -59,12 +138,12 @@ async function processSingleImage(
 
     console.log(`✅ Validation passed: ${validation.message}`);
 
-    const filename = path.basename(att.path);
-    const dest = path.join(SAVE_DIR, filename);
-
     // Copy the file to your folder
     fs.copyFileSync(att.path, dest);
     console.log(`✅ Saved image to ${dest}`);
+
+    // Mark as processed
+    markImageAsProcessed(filename);
 
     // Auto-process with xAI if enabled
     if (AUTO_PROCESS) {
@@ -107,6 +186,9 @@ async function processAndSaveImages(fromNumber: string) {
   const sdk = new IMessageSDK({ debug: true });
 
   try {
+    // Load processed images list
+    loadProcessedImages();
+
     // Normalize the phone number to match database format
     const normalizedNumber = normalizePhoneNumber(fromNumber);
     console.log(`Looking for messages from: ${normalizedNumber || 'ALL'}`);

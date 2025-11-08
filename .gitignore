@@ -172,8 +172,10 @@ xAI/processed-receipts/
 # iMessage message history and hashes
 iMessage/.message-history.json
 iMessage/message-hashes.json
+iMessage/.processed-images.json
 .message-history.json
 message-hashes.json
+.processed-images.json
 
 # Temporary test files
 test-*.json
