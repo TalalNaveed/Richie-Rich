@@ -13,9 +13,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Use HTTP as per the API documentation
-    const apiUrl = `http://api.nessieisreal.com/enterprise/accounts?key=${apiKey}`
-    console.log("Fetching enterprise accounts from:", apiUrl.replace(apiKey, "***"))
+    // Use customer endpoint (no /enterprise) to get account data
+    // Note: This returns accounts for the customer associated with the API key
+    const apiUrl = `http://api.nessieisreal.com/accounts?key=${apiKey}`
+    console.log("Fetching accounts from:", apiUrl.replace(apiKey, "***"))
     console.log("API Key present:", !!apiKey, "Length:", apiKey?.length)
     
     const response = await fetch(apiUrl, {
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
     }
 
     const responseData = await response.json()
-    console.log("Enterprise accounts fetched - type:", typeof responseData, "Is array:", Array.isArray(responseData))
+    console.log("Accounts fetched - type:", typeof responseData, "Is array:", Array.isArray(responseData))
     
     // Extract the accounts array from the response
     let accountsArray: any[] = []

@@ -13,9 +13,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Use enterprise endpoint to get all customers
-    const apiUrl = `http://api.nessieisreal.com/enterprise/customers?key=${apiKey}`
-    console.log("Fetching enterprise customers from:", apiUrl.replace(apiKey, "***"))
+    // Use customer endpoint (no /enterprise) to get customer data
+    const apiUrl = `http://api.nessieisreal.com/customers?key=${apiKey}`
+    console.log("Fetching customers from:", apiUrl.replace(apiKey, "***"))
     
     const response = await fetch(apiUrl, {
       headers: {
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     }
 
     const responseData = await response.json()
-    console.log("Enterprise customers fetched - type:", typeof responseData, "Is array:", Array.isArray(responseData))
+    console.log("Customers fetched - type:", typeof responseData, "Is array:", Array.isArray(responseData))
     
     // Extract the customers array from the response
     let customersArray: any[] = []
