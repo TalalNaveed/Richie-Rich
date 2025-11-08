@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "start": "next start",
     "imessage:process": "tsx iMessage/imageExtract.ts",
+    "imessage:poll": "tsx iMessage/poller.ts",
     "receipt:setup": "cd xAI && npm run setup",
     "receipt:test": "cd xAI && npm run test",
     "receipt:process": "cd xAI && npm run process",

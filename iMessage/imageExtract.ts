@@ -16,6 +16,7 @@ const SAVE_DIR = path.resolve(__dirname, 'saved-images');
 // Configuration from environment
 const TARGET_NUMBER = process.env.IMESSAGE_TARGET_NUMBER || '';
 const AUTO_PROCESS = process.env.IMESSAGE_AUTO_PROCESS === 'true';
+const MAX_PARALLEL = parseInt(process.env.MAX_PARALLEL_PROCESSING || '5'); // Max parallel processing
 
 // Normalize phone number (remove spaces, parentheses, dashes)
 function normalizePhoneNumber(phone: string): string {
@@ -32,6 +33,74 @@ async function processTextMessage(text: string, sender: string): Promise<void> {
 }
 
 /**
+ * Process a single image (validation + saving + xAI processing)
+ */
+async function processSingleImage(
+  sdk: IMessageSDK,
+  att: any,
+  normalizedNumber: string,
+  sender: string
+): Promise<{ success: boolean; filename?: string; error?: string }> {
+  try {
+    // VALIDATE IMAGE FIRST
+    console.log(`🔍 Validating image: ${path.basename(att.path)}`);
+    const validation = await validateReceiptImage(att.path);
+    
+    if (!validation.isValid) {
+      // Send feedback to user about validation failure
+      console.log(`❌ Validation failed: ${validation.message}`);
+      try {
+        await sdk.send(normalizedNumber || sender, validation.message);
+      } catch (sendError) {
+        console.error('Could not send validation feedback:', sendError);
+      }
+      return { success: false, error: validation.message };
+    }
+
+    console.log(`✅ Validation passed: ${validation.message}`);
+
+    const filename = path.basename(att.path);
+    const dest = path.join(SAVE_DIR, filename);
+
+    // Copy the file to your folder
+    fs.copyFileSync(att.path, dest);
+    console.log(`✅ Saved image to ${dest}`);
+
+    // Auto-process with xAI if enabled
+    if (AUTO_PROCESS) {
+      console.log(`🤖 Auto-processing with xAI...`);
+      try {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execPromise = promisify(exec);
+        
+        const xaiDir = path.resolve(__dirname, '../xAI');
+        await execPromise(`cd "${xaiDir}" && npm run process`, { timeout: 60000 });
+        console.log(`✨ Processing complete for ${filename}!`);
+      } catch (processError) {
+        console.error(`⚠️  Auto-process failed for ${filename}:`, processError);
+        return { success: false, filename, error: 'Processing failed' };
+      }
+    }
+
+    // Send success message
+    try {
+      await sdk.send(normalizedNumber || sender, {
+        text: '✅ Receipt received and processed!'
+      });
+    } catch (sendError) {
+      // Ignore send errors
+    }
+
+    return { success: true, filename };
+
+  } catch (fileError) {
+    console.error(`Error processing attachment ${att.path}:`, fileError);
+    return { success: false, error: fileError instanceof Error ? fileError.message : 'Unknown error' };
+  }
+}
+
+/**
  * Process messages and save images - original working code
  */
 async function processAndSaveImages(fromNumber: string) {
@@ -44,7 +113,7 @@ async function processAndSaveImages(fromNumber: string) {
 
     const result = await sdk.getMessages({
       sender: normalizedNumber || undefined,
-      unreadOnly: false,
+      unreadOnly: true,  // Only get unread messages
       limit: 50
     });
 
@@ -68,6 +137,7 @@ async function processAndSaveImages(fromNumber: string) {
     }
 
     let imageCount = 0;
+    const imageProcessingPromises: Promise<{ success: boolean; filename?: string; error?: string }>[] = [];
 
     for (const msg of msgs) {
       // Process text if present
@@ -78,63 +148,45 @@ async function processAndSaveImages(fromNumber: string) {
       if (msg.attachments && msg.attachments.length > 0) {
         for (const att of msg.attachments) {
           if (att.mimeType?.startsWith('image/')) {
-            try {
-              // VALIDATE IMAGE FIRST
-              console.log(`🔍 Validating image: ${path.basename(att.path)}`);
-              const validation = await validateReceiptImage(att.path);
-              
-              if (!validation.isValid) {
-                // Send feedback to user about validation failure
-                console.log(`❌ Validation failed: ${validation.message}`);
-                try {
-                  await sdk.send(normalizedNumber || msg.sender, validation.message);
-                } catch (sendError) {
-                  console.error('Could not send validation feedback:', sendError);
-                }
-                continue; // Skip this image
-              }
-
-              console.log(`✅ Validation passed: ${validation.message}`);
-
-              const filename = path.basename(att.path);
-              const dest = path.join(SAVE_DIR, filename);
-
-              // Copy the file to your folder
-              fs.copyFileSync(att.path, dest);
-              console.log(`✅ Saved image to ${dest}`);
-              imageCount++;
-
-              // Auto-process with xAI if enabled
-              if (AUTO_PROCESS) {
-                console.log(`🤖 Auto-processing with xAI...`);
-                try {
-                  const { exec } = await import('child_process');
-                  const { promisify } = await import('util');
-                  const execPromise = promisify(exec);
-                  
-                  const xaiDir = path.resolve(__dirname, '../xAI');
-                  await execPromise(`cd "${xaiDir}" && npm run process`, { timeout: 60000 });
-                  console.log(`✨ Processing complete!`);
-                } catch (processError) {
-                  console.error(`⚠️  Auto-process failed:`, processError);
-                }
-              }
-
-              // Send success message
-              try {
-                await sdk.send(normalizedNumber || msg.sender, {
-                  text: '✅ Receipt received and processed!'
-                });
-              } catch (sendError) {
-                // Ignore send errors
-              }
-
-            } catch (fileError) {
-              console.error(`Error processing attachment ${att.path}:`, fileError);
-            }
+            // Add to parallel processing queue
+            const normalizedNumber = normalizePhoneNumber(fromNumber);
+            imageProcessingPromises.push(
+              processSingleImage(sdk, att, normalizedNumber, msg.sender)
+            );
           }
         }
       }
+    }
+
+    // Process all images in parallel (with concurrency limit)
+    if (imageProcessingPromises.length > 0) {
+      console.log(`\n📦 Processing ${imageProcessingPromises.length} image(s) in parallel (max ${MAX_PARALLEL} concurrent)...`);
+      
+      // Process in batches to limit concurrency
+      const batches: Promise<{ success: boolean; filename?: string; error?: string }>[][] = [];
+      for (let i = 0; i < imageProcessingPromises.length; i += MAX_PARALLEL) {
+        batches.push(imageProcessingPromises.slice(i, i + MAX_PARALLEL));
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const batch of batches) {
+        const results = await Promise.allSettled(batch);
+        
+        for (const result of results) {
+          if (result.status === 'fulfilled' && result.value.success) {
+            successCount++;
+            imageCount++;
+          } else {
+            failCount++;
+          }
+        }
+      }
+
+      console.log(`\n📊 Processing complete:`);
+      console.log(`   ✅ Success: ${successCount}`);
+      console.log(`   ❌ Failed: ${failCount}`);
     }
 
     if (imageCount === 0) {
