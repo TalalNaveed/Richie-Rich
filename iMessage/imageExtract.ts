@@ -31,6 +31,9 @@ let processedImages: ProcessedImages = {
   lastUpdated: new Date().toISOString()
 };
 
+// Track hashes currently being processed (in-memory, prevents parallel duplicates)
+const processingHashes = new Set<string>();
+
 /**
  * Generate hash for image file content
  */
@@ -119,12 +122,19 @@ async function processSingleImage(
   normalizedNumber: string,
   sender: string
 ): Promise<{ success: boolean; filename?: string; error?: string }> {
+  const filename = path.basename(att.path);
+  let imageHash: string | null = null;
+  
   try {
-    const filename = path.basename(att.path);
-    
     // Generate hash of image content
-    const imageHash = hashImageFile(att.path);
+    imageHash = hashImageFile(att.path);
     console.log(`🔍 Checking image: ${filename} (hash: ${imageHash.substring(0, 16)}...)`);
+    
+    // Check if currently being processed (prevents parallel duplicates)
+    if (processingHashes.has(imageHash)) {
+      console.log(`⏭️  Skipping ${filename} - already being processed`);
+      return { success: false, filename, error: 'Already processing' };
+    }
     
     // Check if already processed by hash
     if (isImageProcessed(imageHash)) {
@@ -150,6 +160,10 @@ async function processSingleImage(
       }
     }
 
+    // Mark as currently processing IMMEDIATELY (before validation)
+    processingHashes.add(imageHash);
+    markImageAsProcessed(imageHash); // Mark as processed immediately to prevent duplicates
+
     // VALIDATE IMAGE FIRST
     console.log(`🔍 Validating image: ${filename}`);
     const validation = await validateReceiptImage(att.path);
@@ -172,8 +186,7 @@ async function processSingleImage(
     fs.copyFileSync(att.path, dest);
     console.log(`✅ Saved image to ${dest}`);
 
-    // Mark hash as processed
-    markImageAsProcessed(imageHash);
+    // Hash already marked as processed above
 
     // Auto-process with xAI if enabled
     if (AUTO_PROCESS) {
@@ -206,6 +219,11 @@ async function processSingleImage(
   } catch (fileError) {
     console.error(`Error processing attachment ${att.path}:`, fileError);
     return { success: false, error: fileError instanceof Error ? fileError.message : 'Unknown error' };
+  } finally {
+    // Remove from processing set when done
+    if (imageHash) {
+      processingHashes.delete(imageHash);
+    }
   }
 }
 
