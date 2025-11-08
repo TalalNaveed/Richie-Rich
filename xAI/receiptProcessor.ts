@@ -91,10 +91,11 @@ async function processReceiptImage(imagePath: string): Promise<ReceiptData | nul
         messages: [
           {
             role: 'system',
-            content: `You are a receipt parser. Extract all relevant information from receipt images and return ONLY valid JSON. 
-          
-The JSON should follow this exact structure:
+            content: `You are a receipt parser. First, determine if the image is actually a receipt. If it's not a receipt, return {"isReceipt": false, "error": "This does not appear to be a receipt"}. If the image is too blurry or unreadable, return {"isReceipt": false, "error": "Image is too blurry to process"} or {"isReceipt": false, "error": "Image is unreadable"}.
+
+If it IS a receipt, extract all relevant information and return ONLY valid JSON following this exact structure:
 {
+  "isReceipt": true,
   "merchantName": "string",
   "merchantAddress": "string (optional)",
   "date": "YYYY-MM-DD format",
@@ -118,11 +119,12 @@ The JSON should follow this exact structure:
 }
 
 Important:
+- ALWAYS include "isReceipt": true or false
 - Return ONLY the JSON object, no additional text
 - All monetary values should be numbers (not strings)
 - If a field is not found, omit it or use null
 - Date must be in YYYY-MM-DD format
-- Infer appropriate category tags based on merchant and items`
+- If image is blurry/unreadable/not a receipt, return isReceipt: false with error message`
           },
           {
             role: 'user',
@@ -168,10 +170,29 @@ Important:
       jsonString = jsonString.replace(/```\n?/g, '');
     }
 
-    const receiptData: ReceiptData = JSON.parse(jsonString);
-    console.log(`✅ Successfully processed: ${receiptData.merchantName}`);
+    const parsedData = JSON.parse(jsonString);
     
-    return receiptData;
+    // Check if it's actually a receipt
+    if (parsedData.isReceipt === false) {
+      const errorMsg = parsedData.error || 'Unknown error';
+      console.log(`⚠️  Not a receipt: ${errorMsg}`);
+      
+      // Save error response for checking
+      if (!fs.existsSync(OUTPUT_DIR)) {
+        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+      }
+      const outputFilename = `${path.parse(imagePath).name}.json`;
+      const outputPath = path.join(OUTPUT_DIR, outputFilename);
+      fs.writeFileSync(outputPath, JSON.stringify({ isReceipt: false, error: errorMsg }, null, 2));
+      
+      return null;
+    }
+    
+    // Remove isReceipt field for compatibility
+    const { isReceipt, ...receiptData } = parsedData;
+    console.log(`✅ Successfully processed: ${receiptData.merchantName || 'Receipt'}`);
+    
+    return receiptData as ReceiptData;
   } catch (error) {
     console.error(`Error processing image ${imagePath}:`, error);
     if (error instanceof Error) {
