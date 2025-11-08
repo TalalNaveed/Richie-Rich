@@ -64,7 +64,6 @@ function loadHistory(): void {
       console.log(`📋 Loaded history: ${history.processedHashes.size} processed messages`);
     }
   } catch (error) {
-    console.error('⚠️  Error loading history:', error);
     history = {
       processedHashes: new Set<string>(),
       lastProcessed: new Date().toISOString()
@@ -121,110 +120,123 @@ async function processTextMessage(text: string, sender: string): Promise<void> {
 }
 
 /**
- * Process and save images from a message
+ * Process messages and save images - based on original working code
  */
-async function processMessage(sdk: IMessageSDK, message: Message): Promise<number> {
-  const messageHash = hashMessage(message);
-  
-  // Skip if already processed
-  if (isProcessed(messageHash)) {
-    console.log(`⏭️  Message already processed (duplicate)`);
-    return 0;
-  }
+async function processAndSaveImages(fromNumber: string) {
+  const sdk = new IMessageSDK({ debug: true });
 
-  // Process text if present
-  if (message.text && message.text.trim().length > 0) {
-    await processTextMessage(message.text, message.sender);
-  }
+  try {
+    // Normalize the phone number to match database format
+    const normalizedNumber = normalizePhoneNumber(fromNumber);
+    console.log(`Looking for messages from: ${normalizedNumber}`);
 
-  // Ensure save directory exists
-  if (!fs.existsSync(SAVE_DIR)) {
-    fs.mkdirSync(SAVE_DIR, { recursive: true });
-  }
+    const result = await sdk.getMessages({
+      sender: normalizedNumber,
+      unreadOnly: false,
+      limit: 50
+    });
 
-  let imageCount = 0;
+    // Extract messages array from the response object
+    // The API returns { messages: [], total: number, unreadCount: number }
+    const msgs: Message[] = (result && typeof result === 'object' && 'messages' in result)
+      ? (result as any).messages || []
+      : Array.isArray(result)
+      ? result
+      : [];
 
-  if (message.attachments && message.attachments.length > 0) {
-    console.log(`   Processing ${message.attachments.length} attachment(s)...`);
-    
-    for (const att of message.attachments) {
-      console.log(`   - Checking: ${path.basename(att.path)}`);
-      console.log(`     Type: ${att.mimeType || 'unknown'}`);
-      
-      if (att.mimeType?.startsWith('image/')) {
-        console.log(`     ✓ Is an image!`);
-        
-        const attachmentHash = hashAttachment(att.path, message.id);
-        
-        // Skip if this specific attachment was already processed
-        if (isProcessed(attachmentHash)) {
-          console.log(`     ⏭️  Already processed`);
-          continue;
-        }
+    if (!msgs || msgs.length === 0) {
+      console.log('No messages found');
+      return;
+    }
 
-        try {
-          // Verify file exists
-          if (!fs.existsSync(att.path)) {
-            console.log(`     ❌ File not found: ${att.path}`);
-            continue;
-          }
+    console.log(`Found ${msgs.length} message(s) (Total: ${(result as any)?.total || msgs.length}, Unread: ${(result as any)?.unreadCount || 0})`);
 
-          const timestamp = Date.now();
-          const ext = path.extname(att.path);
-          const filename = `receipt-${timestamp}${ext}`;
-          const dest = path.join(SAVE_DIR, filename);
+    // Ensure local folder exists
+    if (!fs.existsSync(SAVE_DIR)) {
+      fs.mkdirSync(SAVE_DIR, { recursive: true });
+    }
 
-          // Copy the file
-          fs.copyFileSync(att.path, dest);
-          console.log(`     ✅ Saved: ${filename}`);
-          imageCount++;
+    let imageCount = 0;
 
-          // Mark as processed
-          markAsProcessed(attachmentHash);
+    for (const msg of msgs) {
+      // Process text if present
+      if (msg.text && msg.text.trim().length > 0) {
+        await processTextMessage(msg.text, msg.sender);
+      }
 
-          // Auto-process with xAI if enabled
-          if (AUTO_PROCESS) {
-            console.log(`     🤖 Auto-processing with xAI...`);
+      if (msg.attachments && msg.attachments.length > 0) {
+        for (const att of msg.attachments) {
+          if (att.mimeType?.startsWith('image/')) {
+            // Check for duplicates
+            const attachmentHash = hashAttachment(att.path, msg.id);
+            if (isProcessed(attachmentHash)) {
+              console.log(`⏭️  Skipping duplicate: ${path.basename(att.path)}`);
+              continue;
+            }
+
             try {
-              const { exec } = await import('child_process');
-              const { promisify } = await import('util');
-              const execPromise = promisify(exec);
-              
-              const xaiDir = path.resolve(__dirname, '../xAI');
-              await execPromise(`cd "${xaiDir}" && npm run process`, { timeout: 60000 });
-              console.log(`     ✨ Processing complete!`);
-            } catch (processError) {
-              console.error(`     ⚠️  Auto-process failed:`, processError);
+              const filename = path.basename(att.path);
+              const dest = path.join(SAVE_DIR, filename);
+
+              // Copy the file to your folder (like original)
+              fs.copyFileSync(att.path, dest);
+              console.log(`✅ Saved image to ${dest}`);
+              imageCount++;
+
+              // Mark as processed
+              markAsProcessed(attachmentHash);
+
+              // Auto-process with xAI if enabled
+              if (AUTO_PROCESS) {
+                console.log(`   🤖 Auto-processing with xAI...`);
+                try {
+                  const { exec } = await import('child_process');
+                  const { promisify } = await import('util');
+                  const execPromise = promisify(exec);
+                  
+                  const xaiDir = path.resolve(__dirname, '../xAI');
+                  await execPromise(`cd "${xaiDir}" && npm run process`, { timeout: 60000 });
+                  console.log(`   ✨ Processing complete!`);
+                } catch (processError) {
+                  console.error(`   ⚠️  Auto-process failed:`, processError);
+                }
+              }
+
+              // Optionally reply (like original)
+              try {
+                await sdk.send(normalizedNumber, {
+                  text: `Got your image: ${filename}!`
+                });
+              } catch (sendError) {
+                // Ignore send errors
+              }
+
+            } catch (fileError) {
+              console.error(`Error processing attachment ${att.path}:`, fileError);
             }
           }
-
-          // Send acknowledgment
-          try {
-            if (message.sender && !message.isFromMe) {
-              await sdk.send(message.sender, `📸 Got your receipt! ${AUTO_PROCESS ? 'Processing...' : 'Saved!'}`);
-              console.log(`     📤 Sent acknowledgment`);
-            }
-          } catch (sendError) {
-            console.error('     ⚠️  Could not send acknowledgment:', sendError);
-          }
-
-        } catch (fileError) {
-          console.error(`     ❌ Error:`, fileError);
         }
-      } else {
-        console.log(`     ✗ Not an image`);
       }
     }
-  }
 
-  // Mark the message as processed
-  markAsProcessed(messageHash);
-  
-  return imageCount;
+    if (imageCount === 0) {
+      console.log('No images found in the messages');
+    } else {
+      console.log(`✅ Successfully processed ${imageCount} image(s)`);
+    }
+  } catch (err) {
+    console.error('Error while saving images:', err);
+    if (err instanceof Error) {
+      console.error('Error details:', err.message);
+      console.error('Stack:', err.stack);
+    }
+  } finally {
+    await sdk.close();
+  }
 }
 
 /**
- * Main function - continuous watching mode
+ * Watch mode - continuous monitoring
  */
 async function startWatchingMessages() {
   console.log('\n🚀 iMessage Receipt Watcher Starting...\n');
@@ -238,27 +250,23 @@ async function startWatchingMessages() {
   loadHistory();
 
   if (WATCH_MODE) {
-    // Initialize SDK with watcher configuration
     const sdk = new IMessageSDK({ 
       debug: true,
       maxConcurrent: 5,
       scriptTimeout: 30000,
       watcher: {
-        pollInterval: 2000,           // Check every 2 seconds
-        unreadOnly: true,             // Only watch UNREAD messages
-        excludeOwnMessages: true      // Exclude messages from yourself
+        pollInterval: 2000,
+        unreadOnly: true,
+        excludeOwnMessages: true
       }
     });
 
-    console.log('👀 Watching for UNREAD messages with images...');
+    console.log('👀 Watching for UNREAD messages...');
     console.log('💡 Send a receipt image via iMessage to test!\n');
 
-    // Start watching with event handlers
     await sdk.startWatching({
       onNewMessage: async (message: Message) => {
         console.log(`\n📨 New message from ${message.sender}`);
-        console.log(`   Date: ${message.date.toISOString()}`);
-        console.log(`   Read: ${message.isRead ? 'YES' : 'NO'}`);
         console.log(`   Text: ${message.text ? `"${message.text}"` : '(none)'}`);
         console.log(`   Attachments: ${message.attachments?.length || 0}`);
         
@@ -273,28 +281,19 @@ async function startWatchingMessages() {
           }
         }
 
-        // Check if message has text OR images
-        const hasText = message.text && message.text.trim().length > 0;
-        const hasImages = message.attachments?.some(att => att.mimeType?.startsWith('image/'));
-        
-        if (!hasText && !hasImages) {
-          console.log(`ℹ️  No text or images in message\n`);
-          return;
+        // Process text if present
+        if (message.text && message.text.trim().length > 0) {
+          await processTextMessage(message.text, message.sender);
         }
 
-        if (hasImages) {
-          console.log(`📸 Found image(s) - processing...`);
-        }
-        
-        // Process the message (handles both text and images)
-        const imageCount = await processMessage(sdk, message);
-        
-        if (imageCount > 0) {
-          console.log(`\n✅ Processed ${imageCount} new image(s)\n`);
-        } else if (hasText && !hasImages) {
-          console.log(`\n✅ Text processed\n`);
-        } else {
-          console.log(`\nℹ️  No new images (duplicates skipped)\n`);
+        // Process images
+        if (message.attachments && message.attachments.length > 0) {
+          const hasImages = message.attachments.some(att => att.mimeType?.startsWith('image/'));
+          if (hasImages) {
+            // Use the working processAndSaveImages function
+            const normalizedSender = normalizePhoneNumber(message.sender);
+            await processAndSaveImages(normalizedSender);
+          }
         }
       },
       
@@ -305,11 +304,9 @@ async function startWatchingMessages() {
       
       onError: (error: Error) => {
         console.error('\n❌ Watcher error:', error.message);
-        console.error('Stack:', error.stack);
       }
     });
 
-    // Handle graceful shutdown
     process.on('SIGINT', async () => {
       console.log('\n\n🛑 Shutting down...');
       sdk.stopWatching();
@@ -319,76 +316,29 @@ async function startWatchingMessages() {
       process.exit(0);
     });
 
-    // Keep process alive
-    process.on('uncaughtException', (error) => {
-      console.error('Uncaught exception:', error);
-    });
-
-    process.on('unhandledRejection', (error) => {
-      console.error('Unhandled rejection:', error);
-    });
-
   } else {
-    // One-time mode: fetch recent UNREAD messages
-    console.log('📥 Fetching recent UNREAD messages (one-time)...\n');
-
-    const sdk = new IMessageSDK({ debug: true });
-
-    try {
-      const filter: any = {
-        unreadOnly: true,
-        limit: 50
-      };
-
-      if (TARGET_NUMBER) {
-        filter.sender = normalizePhoneNumber(TARGET_NUMBER);
-      }
-
-      const result = await sdk.getMessages(filter);
-
-      const msgs: Message[] = (result && typeof result === 'object' && 'messages' in result)
-        ? (result as any).messages || []
-        : Array.isArray(result)
-        ? result
-        : [];
-
-      if (!msgs || msgs.length === 0) {
-        console.log('No unread messages found\n');
-        await sdk.close();
-        return;
-      }
-
-      console.log(`Found ${msgs.length} unread message(s)\n`);
-
-      let totalImages = 0;
-      for (const msg of msgs) {
-        console.log(`\nProcessing message from ${msg.sender}...`);
-        const imageCount = await processMessage(sdk, msg);
-        totalImages += imageCount;
-      }
-
-      if (totalImages === 0) {
-        console.log('\nℹ️  No new images found');
-      } else {
-        console.log(`\n✅ Processed ${totalImages} new image(s)`);
-      }
-
-    } catch (err) {
-      console.error('Error:', err);
-      if (err instanceof Error) {
-        console.error('Details:', err.message);
-        console.error('Stack:', err.stack);
-      }
-    } finally {
-      await sdk.close();
-      console.log('\n✅ Done!');
+    // One-time mode - use the original working function
+    if (TARGET_NUMBER) {
+      await processAndSaveImages(TARGET_NUMBER);
+    } else {
+      console.log('⚠️  TARGET_NUMBER not set. Set IMESSAGE_TARGET_NUMBER in .env or pass as argument.');
+      console.log('   Using empty string to process all messages...');
+      await processAndSaveImages('');
     }
   }
 }
 
-// Start the watcher
-console.log('Starting iMessage watcher...\n');
-startWatchingMessages().catch(err => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+// Start based on mode
+if (WATCH_MODE) {
+  startWatchingMessages().catch(err => {
+    console.error('Fatal error:', err);
+    process.exit(1);
+  });
+} else {
+  // One-time processing
+  const targetNumber = TARGET_NUMBER || '';
+  processAndSaveImages(targetNumber).catch(err => {
+    console.error('Fatal error:', err);
+    process.exit(1);
+  });
+}
