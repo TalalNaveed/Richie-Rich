@@ -1,0 +1,24 @@
+{
+  "name": "xai-receipt-processor",
+  "version": "1.0.0",
+  "description": "Vision-based receipt processing with OpenAI",
+  "type": "module",
+  "main": "receiptProcessor.ts",
+  "scripts": {
+    "setup": "bash setup.sh",
+    "test": "tsx test.ts",
+    "process": "tsx receiptProcessor.ts",
+    "process:single": "tsx example.ts single",
+    "stats": "tsx apiIntegration.ts",
+    "example": "tsx example.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}
+
