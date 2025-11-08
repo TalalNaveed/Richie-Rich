@@ -8,6 +8,11 @@ interface TransactionCardProps {
     date: string
     type: "credit" | "debit"
     category: string
+    items?: Array<{
+      name: string
+      price: number
+      quantity?: number
+    }>
   }
 }
 
@@ -29,6 +34,7 @@ export function TransactionCard({ transaction }: TransactionCardProps) {
   const bgColor = isCredit ? "from-primary/10 to-primary/5" : "from-secondary/10 to-secondary/5"
   const textColor = isCredit ? "text-primary" : "text-secondary"
   const icon = isCredit ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />
+  const hasItems = transaction.items && transaction.items.length > 0
 
   return (
     <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 transition-all duration-300 hover:shadow-lg hover:bg-white/90 dark:hover:bg-white/20 cursor-pointer p-4 rounded-2xl">
@@ -43,6 +49,26 @@ export function TransactionCard({ transaction }: TransactionCardProps) {
           <div className="flex-1">
             <h3 className="font-semibold text-foreground">{transaction.merchant}</h3>
             <p className="text-sm text-muted-foreground">{transaction.category}</p>
+            {hasItems && (
+              <div className="mt-2 space-y-1">
+                {/* Show only first 2 items max */}
+                {transaction.items!.slice(0, 2).map((item, idx) => {
+                  const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0
+                  return (
+                    <p key={idx} className="text-xs text-muted-foreground">
+                      • {item.name} - ${price.toFixed(2)}
+                      {item.quantity && item.quantity > 1 && ` (x${item.quantity})`}
+                    </p>
+                  )
+                })}
+                {/* Only show "+X more" if there are more than 2 items */}
+                {transaction.items!.length > 2 && (
+                  <p className="text-xs text-muted-foreground">
+                    +{transaction.items!.length - 2} more item{transaction.items!.length - 2 !== 1 ? "s" : ""}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
