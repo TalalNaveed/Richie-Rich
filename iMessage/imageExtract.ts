@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { IMessageSDK, Message } from '@photon-ai/imessage-kit';
 import dotenv from 'dotenv';
@@ -19,16 +20,30 @@ const TARGET_NUMBER = process.env.IMESSAGE_TARGET_NUMBER || '';
 const AUTO_PROCESS = process.env.IMESSAGE_AUTO_PROCESS === 'true';
 const MAX_PARALLEL = parseInt(process.env.MAX_PARALLEL_PROCESSING || '5'); // Max parallel processing
 
-// Track processed images by filename
+// Track processed images by hash
 interface ProcessedImages {
-  processedFilenames: Set<string>;
+  processedHashes: Set<string>;
   lastUpdated: string;
 }
 
 let processedImages: ProcessedImages = {
-  processedFilenames: new Set<string>(),
+  processedHashes: new Set<string>(),
   lastUpdated: new Date().toISOString()
 };
+
+/**
+ * Generate hash for image file content
+ */
+function hashImageFile(imagePath: string): string {
+  try {
+    const fileBuffer = fs.readFileSync(imagePath);
+    return crypto.createHash('sha256').update(fileBuffer).digest('hex');
+  } catch (error) {
+    // Fallback: hash the path + file size
+    const stats = fs.statSync(imagePath);
+    return crypto.createHash('sha256').update(`${imagePath}-${stats.size}-${stats.mtimeMs}`).digest('hex');
+  }
+}
 
 /**
  * Load processed images list
@@ -38,13 +53,13 @@ function loadProcessedImages(): void {
     if (fs.existsSync(PROCESSED_FILE)) {
       const data = fs.readFileSync(PROCESSED_FILE, 'utf-8');
       const parsed = JSON.parse(data);
-      processedImages.processedFilenames = new Set(parsed.processedFilenames || []);
+      processedImages.processedHashes = new Set(parsed.processedHashes || []);
       processedImages.lastUpdated = parsed.lastUpdated || new Date().toISOString();
-      console.log(`📋 Loaded ${processedImages.processedFilenames.size} processed image(s)`);
+      console.log(`📋 Loaded ${processedImages.processedHashes.size} processed image hash(es)`);
     }
   } catch (error) {
     processedImages = {
-      processedFilenames: new Set<string>(),
+      processedHashes: new Set<string>(),
       lastUpdated: new Date().toISOString()
     };
   }
@@ -56,7 +71,7 @@ function loadProcessedImages(): void {
 function saveProcessedImages(): void {
   try {
     const data = {
-      processedFilenames: Array.from(processedImages.processedFilenames),
+      processedHashes: Array.from(processedImages.processedHashes),
       lastUpdated: processedImages.lastUpdated
     };
     fs.writeFileSync(PROCESSED_FILE, JSON.stringify(data, null, 2));
@@ -66,17 +81,17 @@ function saveProcessedImages(): void {
 }
 
 /**
- * Check if image filename has been processed
+ * Check if image hash has been processed
  */
-function isImageProcessed(filename: string): boolean {
-  return processedImages.processedFilenames.has(filename);
+function isImageProcessed(imageHash: string): boolean {
+  return processedImages.processedHashes.has(imageHash);
 }
 
 /**
- * Mark image as processed
+ * Mark image hash as processed
  */
-function markImageAsProcessed(filename: string): void {
-  processedImages.processedFilenames.add(filename);
+function markImageAsProcessed(imageHash: string): void {
+  processedImages.processedHashes.add(imageHash);
   processedImages.lastUpdated = new Date().toISOString();
   saveProcessedImages();
 }
@@ -107,18 +122,32 @@ async function processSingleImage(
   try {
     const filename = path.basename(att.path);
     
-    // Check if already processed by filename
-    if (isImageProcessed(filename)) {
-      console.log(`⏭️  Skipping ${filename} - already processed`);
+    // Generate hash of image content
+    const imageHash = hashImageFile(att.path);
+    console.log(`🔍 Checking image: ${filename} (hash: ${imageHash.substring(0, 16)}...)`);
+    
+    // Check if already processed by hash
+    if (isImageProcessed(imageHash)) {
+      console.log(`⏭️  Skipping ${filename} - hash already processed`);
       return { success: false, filename, error: 'Already processed' };
     }
 
-    // Also check if file already exists in saved-images
-    const dest = path.join(SAVE_DIR, filename);
-    if (fs.existsSync(dest)) {
-      console.log(`⏭️  Skipping ${filename} - file already exists`);
-      markImageAsProcessed(filename); // Mark as processed
-      return { success: false, filename, error: 'File already exists' };
+    // Also check if file already exists in saved-images (by hash)
+    if (fs.existsSync(SAVE_DIR)) {
+      const existingFiles = fs.readdirSync(SAVE_DIR);
+      for (const existingFile of existingFiles) {
+        const existingPath = path.join(SAVE_DIR, existingFile);
+        try {
+          const existingHash = hashImageFile(existingPath);
+          if (existingHash === imageHash) {
+            console.log(`⏭️  Skipping ${filename} - duplicate image already exists (${existingFile})`);
+            markImageAsProcessed(imageHash); // Mark as processed
+            return { success: false, filename, error: 'Duplicate image exists' };
+          }
+        } catch (err) {
+          // Skip if can't hash existing file
+        }
+      }
     }
 
     // VALIDATE IMAGE FIRST
@@ -139,11 +168,12 @@ async function processSingleImage(
     console.log(`✅ Validation passed: ${validation.message}`);
 
     // Copy the file to your folder
+    const dest = path.join(SAVE_DIR, filename);
     fs.copyFileSync(att.path, dest);
     console.log(`✅ Saved image to ${dest}`);
 
-    // Mark as processed
-    markImageAsProcessed(filename);
+    // Mark hash as processed
+    markImageAsProcessed(imageHash);
 
     // Auto-process with xAI if enabled
     if (AUTO_PROCESS) {
