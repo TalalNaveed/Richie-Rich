@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { IMessageSDK, Message } from '@photon-ai/imessage-kit';
 import dotenv from 'dotenv';
+import { validateReceiptImage, ValidationResult } from './imageValidator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +79,23 @@ async function processAndSaveImages(fromNumber: string) {
         for (const att of msg.attachments) {
           if (att.mimeType?.startsWith('image/')) {
             try {
+              // VALIDATE IMAGE FIRST
+              console.log(`🔍 Validating image: ${path.basename(att.path)}`);
+              const validation = await validateReceiptImage(att.path);
+              
+              if (!validation.isValid) {
+                // Send feedback to user about validation failure
+                console.log(`❌ Validation failed: ${validation.message}`);
+                try {
+                  await sdk.send(normalizedNumber || msg.sender, validation.message);
+                } catch (sendError) {
+                  console.error('Could not send validation feedback:', sendError);
+                }
+                continue; // Skip this image
+              }
+
+              console.log(`✅ Validation passed: ${validation.message}`);
+
               const filename = path.basename(att.path);
               const dest = path.join(SAVE_DIR, filename);
 
@@ -102,10 +120,10 @@ async function processAndSaveImages(fromNumber: string) {
                 }
               }
 
-              // Optionally reply
+              // Send success message
               try {
                 await sdk.send(normalizedNumber || msg.sender, {
-                  text: `Got your image: ${filename}!`
+                  text: '✅ Receipt received and processed!'
                 });
               } catch (sendError) {
                 // Ignore send errors
@@ -120,9 +138,9 @@ async function processAndSaveImages(fromNumber: string) {
     }
 
     if (imageCount === 0) {
-      console.log('No images found in the messages');
+      console.log('No valid receipt images found in the messages');
     } else {
-      console.log(`✅ Successfully processed ${imageCount} image(s)`);
+      console.log(`✅ Successfully processed ${imageCount} receipt image(s)`);
     }
   } catch (err) {
     console.error('Error while saving images:', err);
