@@ -190,13 +190,14 @@ export async function POST(request: NextRequest) {
     console.log(`💾 [API] Saved receipt JSON to: ${outputPath}`);
 
     // Save to database as transaction with robust duplicate detection
+    // ALWAYS save to User 1 for demo purposes
     let transactionId: number | null = null;
     try {
-      console.log(`💾 [API] Saving receipt to database as transaction...`);
+      console.log(`💾 [API] Saving receipt to database as transaction for User 1...`);
       const { saveReceiptAsTransaction } = await import('@/lib/receipt-to-transaction');
       
-      // Check if transaction already exists before saving
-      const existingTxId = await saveReceiptAsTransaction(receiptData);
+      // Always save to User 1 (explicitly set for demo)
+      const existingTxId = await saveReceiptAsTransaction(receiptData, 1);
       transactionId = existingTxId;
       
       // Note: saveReceiptAsTransaction will return existing ID if duplicate is found

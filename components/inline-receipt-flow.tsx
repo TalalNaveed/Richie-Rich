@@ -76,11 +76,20 @@ export function InlineReceiptFlow({ onClose }: { onClose: () => void }) {
         console.log('✅ [Frontend] Receipt data received successfully:', {
           orderName: result.receipt.orderName,
           itemsCount: result.receipt.items.length,
-          total: result.receipt.total
+          total: result.receipt.total,
+          transactionId: result.transactionId
         })
         setReceiptData(result.receipt)
         setState("results")
         console.log('✅ [Frontend] State updated to "results"')
+        
+        // Trigger refresh of Recent Transactions if receipt was saved to database
+        if (result.transactionId) {
+          console.log('🔄 [Frontend] Dispatching refresh event for Recent Transactions')
+          window.dispatchEvent(new CustomEvent('receiptSaved', { 
+            detail: { transactionId: result.transactionId } 
+          }))
+        }
       } else {
         console.error('❌ [Frontend] No receipt data found in response:', result)
         throw new Error('No receipt data found in response')

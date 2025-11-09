@@ -13,6 +13,7 @@ interface Transaction {
   date: string
   type: "credit" | "debit"
   category: string
+  location?: string // Store location/address
   source?: string // "knot", "receipt", "manual"
   items?: Array<{
     name: string
@@ -76,6 +77,7 @@ function mapDatabaseTransaction(dbTx: DatabaseTransaction): Transaction {
     date: formattedDate,
     type,
     category,
+    location: dbTx.location || undefined, // Include location if available
     source: dbTx.source || 'manual', // Include source
     items,
   }
@@ -144,7 +146,21 @@ export function RecentTransactions({ userId }: RecentTransactionsProps = {}) {
       fetchTransactions(true)
     }, 10000)
     
-    return () => clearInterval(interval)
+    // Listen for receipt saved events to refresh transactions immediately
+    const handleReceiptSaved = () => {
+      console.log('🔄 [RecentTransactions] Receipt saved event received, refreshing transactions...')
+      // Small delay to ensure database is updated
+      setTimeout(() => {
+        fetchTransactions(true)
+      }, 500)
+    }
+
+    window.addEventListener('receiptSaved', handleReceiptSaved)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('receiptSaved', handleReceiptSaved)
+    }
   }, [fetchTransactions])
 
   // Calculate pagination

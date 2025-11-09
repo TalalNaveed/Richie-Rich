@@ -201,10 +201,11 @@ async function processSingleImage(
           console.log(`✅ Receipt processed: ${receiptData.orderName || 'Unknown Merchant'}`);
           
           // Save receipt as transaction to database with robust error handling
+          // ALWAYS save to User 1 for demo purposes
           try {
-            const transactionId = await saveReceiptAsTransaction(receiptData);
+            const transactionId = await saveReceiptAsTransaction(receiptData, 1);
             if (transactionId) {
-              console.log(`💾 Saved receipt as transaction ${transactionId} in database`);
+              console.log(`💾 Saved receipt as transaction ${transactionId} in database for User 1`);
             } else {
               console.log(`⏭️  Receipt skipped (duplicate or invalid)`);
             }

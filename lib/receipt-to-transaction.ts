@@ -76,7 +76,7 @@ async function checkForDuplicate(
 /**
  * Convert xAI receipt data to transaction format and save to database using Prisma
  * @param receiptData - The receipt data from xAI
- * @param userId - Optional user ID (if not provided, uses first user)
+ * @param userId - Optional user ID (if not provided, defaults to User 1 for demo purposes)
  * @returns The transaction ID (or existing ID if duplicate)
  */
 export async function saveReceiptAsTransaction(
@@ -86,16 +86,21 @@ export async function saveReceiptAsTransaction(
   console.log(`💾 [DB] Converting receipt to transaction format...`);
   
   try {
-    // Get first user if not provided
+    // Default to User 1 for all receipt uploads (demo requirement)
     if (!userId) {
-      const firstUser = await prisma.user.findFirst({
-        orderBy: { id: 'asc' }
+      userId = 1;
+      console.log(`👤 [DB] No userId provided, defaulting to User 1 for receipt upload`);
+      
+      // Verify User 1 exists
+      const user1 = await prisma.user.findUnique({
+        where: { id: 1 }
       });
-      if (!firstUser) {
-        throw new Error('No users found in database. Please seed the database first.');
+      if (!user1) {
+        throw new Error('User 1 not found in database. Please seed the database first.');
       }
-      userId = firstUser.id;
     }
+    
+    console.log(`👤 [DB] Saving receipt transaction for User ${userId}`);
 
     // Convert receipt items to Prisma transaction items format
     const items = receiptData.items.map((item, index) => {
@@ -151,9 +156,13 @@ export async function saveReceiptAsTransaction(
     console.log(`💾 [DB] Transaction data prepared:`, {
       orderName,
       location: receiptData.location || 'N/A',
+      dateTime: transactionDate.toISOString(),
       itemsCount: items.length,
-      total: totalAmount,
-      dateTime: transactionDate.toISOString()
+      subtotal: receiptData.subtotal !== undefined ? `$${receiptData.subtotal.toFixed(2)}` : 'N/A',
+      tax: receiptData.tax !== undefined ? `$${receiptData.tax.toFixed(2)}` : 'N/A',
+      tip: receiptData.tip !== undefined ? `$${receiptData.tip.toFixed(2)}` : 'N/A',
+      total: `$${totalAmount.toFixed(2)}`,
+      source: 'receipt'
     });
     
     // Check for duplicates BEFORE saving
@@ -183,7 +192,11 @@ export async function saveReceiptAsTransaction(
       },
     });
     
-    console.log(`✅ [DB] Saved receipt as transaction ${transaction.id} for user ${userId}, orderName: ${orderName}`);
+    console.log(`✅ [DB] Saved receipt as transaction ${transaction.id} for user ${userId}`);
+    console.log(`   📍 Location: ${receiptData.location || 'Not provided'}`);
+    console.log(`   📅 Date: ${transactionDate.toISOString()}`);
+    console.log(`   💰 Total: $${totalAmount.toFixed(2)}`);
+    console.log(`   📦 Items: ${items.length}`);
     return transaction.id;
   } catch (error) {
     console.error(`❌ [DB] Error saving receipt as transaction:`, error);

@@ -101,10 +101,19 @@ async function repairReceiptJson(raw: string): Promise<any | null> {
   try {
     console.warn('⚠️  [Grok] Attempting to repair malformed JSON via text model...');
     const repairPrompt = `The following is malformed JSON output from a receipt OCR model.\n` +
-      `Fix the JSON so that it is syntactically valid. It should be a JSON array of objects with this format:\n` +
-      `[\n  { "item": "item name", "price": "price as string" },\n  { "item": "item name", "price": "price as string" }\n]\n` +
-      `If any line is unreadable, use { "item": null, "price": null }.\n` +
-      `Do NOT invent data. Respond with valid JSON array only.\n\n` +
+      `Fix the JSON so that it is syntactically valid. It should be a JSON object with this format:\n` +
+      `{\n` +
+      `  "merchant": "store name",\n` +
+      `  "location": "address if visible",\n` +
+      `  "date": "YYYY-MM-DD if visible",\n` +
+      `  "time": "HH:MM if visible",\n` +
+      `  "items": [{"item": "name", "price": "amount", "quantity": 1}, ...],\n` +
+      `  "subtotal": number if visible,\n` +
+      `  "tax": number if visible,\n` +
+      `  "tip": number if visible,\n` +
+      `  "total": number\n` +
+      `}\n` +
+      `If any field is not visible, use null. Do NOT invent data. Respond with valid JSON only.\n\n` +
       `Malformed JSON:\n"""${raw}"""`;
 
     const response = await fetch(`${XAI_API_URL}/chat/completions`, {
@@ -317,11 +326,34 @@ export async function processReceiptImage(imagePath: string): Promise<ReceiptDat
           {
             parts: [
               {
-                text: `Extract receipt items as JSON array. Output ONLY valid JSON, no explanations.
+                text: `Extract complete receipt information as JSON object. Output ONLY valid JSON, no explanations.
 
-Format: [{"item": "name", "price": "amount"}, ...]
-If unreadable: {"item": null, "price": null}
-Read text exactly as shown.`
+Required format:
+{
+  "merchant": "store/merchant name",
+  "location": "store address or location (if visible)",
+  "date": "date from receipt (YYYY-MM-DD format if available)",
+  "time": "time from receipt (HH:MM format if available)",
+  "items": [
+    {"item": "item name", "price": "price as string", "quantity": quantity number if visible},
+    ...
+  ],
+  "subtotal": "subtotal amount as number (if visible)",
+  "tax": "tax amount as number (if visible)",
+  "tip": "tip amount as number (if visible)",
+  "total": "total amount as number"
+}
+
+Rules:
+- Extract merchant name from receipt header
+- Extract location/address if visible on receipt
+- Extract date and time if visible (use ISO format: date as YYYY-MM-DD, time as HH:MM)
+- Extract all line items with names and prices
+- Extract quantities if shown (default to 1 if not visible)
+- Extract subtotal, tax, tip, and total amounts
+- If any field is not visible, use null
+- Read text exactly as shown, do not invent data
+- Output valid JSON only`
               },
               {
                 inline_data: {
@@ -402,40 +434,130 @@ Read text exactly as shown.`
       return null;
     }
 
-    console.log(`🔍 [Gemini] JSON parsed successfully, received ${Array.isArray(parsedData) ? parsedData.length : 'non-array'} items`);
+    console.log(`🔍 [Gemini] JSON parsed successfully, type: ${typeof parsedData}`);
 
-    // Check if we got an array of items
-    if (!Array.isArray(parsedData)) {
-      console.error('❌ [Gemini] Expected array of items, got:', typeof parsedData);
+    // Handle both object format (new) and array format (backward compatibility)
+    let receiptInfo: any = {};
+    let itemsArray: any[] = [];
+
+    if (Array.isArray(parsedData)) {
+      // Old format: just array of items
+      console.log(`📋 [Gemini] Received array format (legacy), ${parsedData.length} items`);
+      itemsArray = parsedData;
+      receiptInfo = {
+        merchant: null,
+        location: null,
+        date: null,
+        time: null,
+        subtotal: null,
+        tax: null,
+        tip: null,
+        total: null
+      };
+    } else if (typeof parsedData === 'object' && parsedData !== null) {
+      // New format: object with merchant, location, date, items, etc.
+      console.log(`📋 [Gemini] Received object format with full receipt details`);
+      receiptInfo = parsedData;
+      itemsArray = Array.isArray(parsedData.items) ? parsedData.items : [];
+    } else {
+      console.error('❌ [Gemini] Unexpected data format:', typeof parsedData);
       saveRawResponse(imagePath, jsonString);
       return null;
     }
 
     // Filter out null items
-    const validItems = parsedData.filter(item => item && item.item !== null && item.price !== null);
+    const validItems = itemsArray.filter(item => item && item.item !== null && item.price !== null);
 
     if (validItems.length === 0) {
       console.warn('⚠️  [Gemini] No valid items found in receipt');
       return null;
     }
 
+    // Extract merchant name
+    const merchantName = receiptInfo.merchant || receiptInfo.orderName || receiptInfo.store || 'Unknown Merchant';
+    
+    // Extract location
+    const location = receiptInfo.location || receiptInfo.address || receiptInfo.storeLocation || null;
+
+    // Extract and combine date/time
+    let dateTime: Date;
+    if (receiptInfo.date || receiptInfo.time) {
+      try {
+        // Try to parse date and time
+        let dateStr = receiptInfo.date || new Date().toISOString().split('T')[0];
+        let timeStr = receiptInfo.time || '12:00';
+        
+        // Combine date and time into ISO format
+        const combinedDateTime = `${dateStr}T${timeStr}:00`;
+        dateTime = new Date(combinedDateTime);
+        
+        // Validate date
+        if (isNaN(dateTime.getTime())) {
+          console.warn(`⚠️  [Gemini] Invalid date/time format, using current date`);
+          dateTime = new Date();
+        }
+      } catch (error) {
+        console.warn(`⚠️  [Gemini] Error parsing date/time, using current date:`, error);
+        dateTime = new Date();
+      }
+    } else {
+      dateTime = new Date();
+    }
+
+    // Extract financial amounts
+    const subtotal = receiptInfo.subtotal !== null && receiptInfo.subtotal !== undefined 
+      ? parseFloat(receiptInfo.subtotal) 
+      : undefined;
+    const tax = receiptInfo.tax !== null && receiptInfo.tax !== undefined 
+      ? parseFloat(receiptInfo.tax) 
+      : undefined;
+    const tip = receiptInfo.tip !== null && receiptInfo.tip !== undefined 
+      ? parseFloat(receiptInfo.tip) 
+      : undefined;
+    const total = receiptInfo.total !== null && receiptInfo.total !== undefined
+      ? parseFloat(receiptInfo.total)
+      : validItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+
     // Step 2: Convert to ReceiptData format (before autocompletion)
     let receiptData: ReceiptData = {
-      orderName: 'Unknown Merchant', // OCR only provides items and prices
-      items: validItems.map((item, index) => ({
-        name: item.item || `Item ${index + 1}`,
-        quantity: 1, // Default to 1 since OCR doesn't provide quantities
-        ppu: parseFloat(item.price) || 0, // Assume ppu = total price
-        price: parseFloat(item.price) || 0
-      })),
+      orderName: merchantName,
+      location: location,
+      items: validItems.map((item, index) => {
+        const quantity = item.quantity && typeof item.quantity === 'number' ? item.quantity : 1;
+        const price = parseFloat(item.price) || 0;
+        const ppu = quantity > 0 ? price / quantity : price;
+        
+        return {
+          name: item.item || `Item ${index + 1}`,
+          quantity: quantity,
+          ppu: ppu,
+          price: price
+        };
+      }),
       prices: validItems.map(item => parseFloat(item.price) || 0),
-      ppu: validItems.map(item => parseFloat(item.price) || 0),
-      quantities: validItems.map(() => 1),
-      dateTime: new Date().toISOString(),
-      total: validItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0)
+      ppu: validItems.map(item => {
+        const quantity = item.quantity && typeof item.quantity === 'number' ? item.quantity : 1;
+        const price = parseFloat(item.price) || 0;
+        return quantity > 0 ? price / quantity : price;
+      }),
+      quantities: validItems.map(item => item.quantity && typeof item.quantity === 'number' ? item.quantity : 1),
+      dateTime: dateTime.toISOString(),
+      subtotal: subtotal,
+      tax: tax,
+      tip: tip,
+      total: total
     };
 
-    console.log(`✅ [Gemini] Successfully parsed receipt: ${validItems.length} items - $${receiptData.total}`);
+    console.log(`✅ [Gemini] Successfully parsed receipt:`, {
+      merchant: receiptData.orderName,
+      location: receiptData.location || 'N/A',
+      dateTime: receiptData.dateTime,
+      itemsCount: validItems.length,
+      subtotal: receiptData.subtotal || 'N/A',
+      tax: receiptData.tax || 'N/A',
+      tip: receiptData.tip || 'N/A',
+      total: receiptData.total
+    });
 
     // Step 3: Use Grok to autocomplete short-form item names
     console.log(`🤖 [Grok] Autocompleting item names from OCR output...`);

@@ -262,9 +262,12 @@ pnpm-debug.log*
 # ================================
 # Database
 # ================================
-*.db
+# Allow bank.db (Prisma database) to be committed for demo purposes
+!bank.db
 *.sqlite
 *.sqlite3
+# Keep old transactions.db ignored
+transactions.db
 
 # ================================
 # Certificates & Keys

@@ -16,6 +16,7 @@ interface Transaction {
   date: string
   type: "credit" | "debit"
   category: string
+  location?: string // Store location/address
   source?: string // "knot", "receipt", "manual"
   items?: Array<{
     name: string
@@ -93,6 +94,17 @@ export function TransactionDetailsModal({ transaction, open, onClose }: Transact
               </div>
             </div>
           </div>
+
+          {/* Location */}
+          {transaction.location && (
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <Store className="w-5 h-5 text-muted-foreground mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Location</p>
+                <p className="font-medium">{transaction.location}</p>
+              </div>
+            </div>
+          )}
 
           {/* Data Source */}
           {transaction.source && (

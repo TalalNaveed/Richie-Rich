@@ -77,11 +77,20 @@ export function ReceiptUploadSidebar() {
         console.log('✅ [Sidebar] Receipt data received successfully:', {
           orderName: result.receipt.orderName,
           itemsCount: result.receipt.items.length,
-          total: result.receipt.total
+          total: result.receipt.total,
+          transactionId: result.transactionId
         })
         setReceiptData(result.receipt)
         setState("results")
         console.log('✅ [Sidebar] State updated to "results"')
+        
+        // Trigger refresh of Recent Transactions if receipt was saved to database
+        if (result.transactionId) {
+          console.log('🔄 [Sidebar] Dispatching refresh event for Recent Transactions')
+          window.dispatchEvent(new CustomEvent('receiptSaved', { 
+            detail: { transactionId: result.transactionId } 
+          }))
+        }
       } else {
         console.error('❌ [Sidebar] No receipt data found in response:', result)
         throw new Error('No receipt data found in response')
