@@ -6,6 +6,7 @@ import { RecentTransactions } from "./recent-transactions"
 import { ReceiptUploadSidebar } from "./receipt-upload-sidebar"
 import { AnalyticsDashboard } from "./analytics-dashboard"
 import { XNewsWidget } from "./x-news-widget"
+import { Footer } from "./footer"
 import { getCustomers, getAccounts, type NessieAccount, type NessieCustomer } from "@/lib/nessie-api"
 
 export function Dashboard() {
@@ -67,16 +68,18 @@ export function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-12">
-          <div className="fade-in">
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-              Hello, <span className="gradient-text">{userName || "User"}</span>
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Welcome back to your financial dashboard
-            </p>
-            {error && (
-              <p className="text-sm text-destructive mt-2">Error: {error}</p>
-            )}
+          <div className="fade-in flex items-center gap-4">
+            <div>
+              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
+                Hello, <span className="gradient-text">{userName || "User"}</span>
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Welcome back to your financial dashboard
+              </p>
+              {error && (
+                <p className="text-sm text-destructive mt-2">Error: {error}</p>
+              )}
+            </div>
           </div>
 
           {/* Credit Score Card */}
@@ -109,6 +112,9 @@ export function Dashboard() {
           <AnalyticsDashboard />
         </div>
       </div>
+
+      {/* Footer */}
+      <Footer />
 
       {/* X News Widget - Fixed bottom right */}
       <XNewsWidget />
