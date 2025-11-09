@@ -10,6 +10,8 @@ import { XNewsWidget } from "./x-news-widget"
 import { ThemeToggle } from "./theme-toggle"
 import { Footer } from "./footer"
 import { getCustomers, getAccounts, type NessieAccount, type NessieCustomer } from "@/lib/nessie-api"
+import { useToast } from "@/hooks/use-toast"
+import { CheckCircle2, Receipt as ReceiptIcon } from "lucide-react"
 
 type UserData = {
   id: number
@@ -41,6 +43,40 @@ export function Dashboard({ userData, userId }: DashboardProps = {}) {
   const [accounts, setAccounts] = useState<NessieAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
+
+  // Listen for iMessage JSON receipts
+  useEffect(() => {
+    const checkForNewReceipts = async () => {
+      try {
+        // Poll the API to check if new receipts were received
+        const response = await fetch('/api/imessage-receive?check=true')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.hasNewReceipt) {
+            toast({
+              title: "📥 Receipt Received!",
+              description: `New receipt from ${data.receipt?.orderName || 'Mac'} has been processed and added to your transactions.`,
+              duration: 5000,
+            })
+            
+            // Trigger refresh of transactions
+            window.dispatchEvent(new CustomEvent('receiptSaved', { 
+              detail: { transactionId: data.transactionId } 
+            }))
+          }
+        }
+      } catch (error) {
+        // Silently fail - this is just a check
+        console.error('Error checking for new receipts:', error)
+      }
+    }
+
+    // Check every 5 seconds for new receipts
+    const interval = setInterval(checkForNewReceipts, 5000)
+    
+    return () => clearInterval(interval)
+  }, [toast])
 
   useEffect(() => {
     // If userData is provided, use it directly
@@ -142,17 +178,14 @@ export function Dashboard({ userData, userId }: DashboardProps = {}) {
           </div>
         </div>
 
-        {/* Two Column Layout: Transactions on left, Receipt Upload on right */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-          {/* Recent Transactions - Takes 2 columns on desktop */}
-          <div className="lg:col-span-2 fade-in delay-200">
-            <RecentTransactions userId={userId || userData?.id} />
-          </div>
+        {/* Transactions Section - Full Width */}
+        <div className="mb-12 fade-in delay-200">
+          <RecentTransactions userId={userId || userData?.id} />
+        </div>
 
-          {/* Receipt Upload Sidebar - Takes 1 column on desktop, full width on mobile */}
-          <div className="lg:col-span-1 fade-in delay-200">
-            <ReceiptUploadSidebar />
-          </div>
+        {/* Receipt Upload & Results Section - Below Transactions */}
+        <div className="mb-12 fade-in delay-300">
+          <ReceiptUploadSidebar />
         </div>
 
         {/* Analytics Section */}

@@ -219,42 +219,16 @@ export function StockRecommendations() {
                     <h3 className="font-bold text-2xl text-foreground">{rec.symbol}</h3>
                     <span className="text-xs text-muted-foreground">#{index + 1}</span>
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                      {rec.companyName}
-                    </p>
-                  </div>
-
-                {/* Confidence and Risk */}
-                <div className="flex items-center justify-between mb-4 p-3 rounded-lg bg-muted/50">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Confidence</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full transition-all duration-500"
-                          style={{ width: `${rec.confidence}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-bold text-foreground min-w-[3rem]">
-                        {rec.confidence}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="text-xs text-muted-foreground mb-1">Risk Level</p>
-                    <Badge
-                      variant="outline"
-                      className={`${getRiskColor(rec.riskLevel)} border-current font-semibold`}
-                    >
-                      {rec.riskLevel.toUpperCase()}
-                    </Badge>
-                  </div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
+                    {rec.companyName}
+                  </p>
+                  {/* Brief company description */}
+                  <p className="text-xs text-foreground/70 line-clamp-2 leading-relaxed">
+                    {rec.reasoning.length > 120 
+                      ? `${rec.reasoning.substring(0, 120)}...` 
+                      : rec.reasoning}
+                  </p>
                 </div>
-
-                {/* Reasoning */}
-                <p className="text-sm text-foreground/80 mb-4 line-clamp-2 leading-relaxed">
-                  {rec.reasoning}
-                </p>
 
                 {/* Action Button */}
                 <div className="pt-3 border-t border-border/50">

@@ -260,14 +260,17 @@ export function InlineReceiptFlow({ onClose }: { onClose: () => void }) {
             </div>
 
             {/* Merchant Info Card */}
-            <div className="mb-6 p-4 bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 rounded-xl">
-              <p className="text-sm text-muted-foreground mb-1">Merchant</p>
-              <p className="text-2xl font-bold">{receiptData.orderName}</p>
+            <div className="mb-6 backdrop-blur-xl bg-gradient-to-br from-blue-50/90 to-indigo-50/90 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/40 dark:border-blue-800/30 rounded-xl p-5 shadow-md">
+              <p className="text-sm text-blue-700 dark:text-blue-300 mb-2 font-medium">Merchant</p>
+              <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{receiptData.orderName}</p>
               {receiptData.location && (
-                <p className="text-xs text-muted-foreground mt-1">{receiptData.location}</p>
+                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-2 flex items-center gap-1">
+                  <span>📍</span> {receiptData.location}
+                </p>
               )}
               {receiptData.dateTime && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1 flex items-center gap-1">
+                  <span>📅</span>
                   {new Date(receiptData.dateTime).toLocaleDateString('en-US', { 
                     month: 'short', 
                     day: 'numeric', 
@@ -280,30 +283,34 @@ export function InlineReceiptFlow({ onClose }: { onClose: () => void }) {
             </div>
 
             {/* Total Amount Card */}
-            <div className="mb-6 p-4 bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl">
-              <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
+            <div className="mb-6 backdrop-blur-xl bg-gradient-to-br from-green-50/90 to-emerald-50/90 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200/40 dark:border-green-800/30 rounded-xl p-5 shadow-md">
+              <p className="text-sm text-green-700 dark:text-green-300 mb-2 font-medium">Total Amount</p>
               <p className="text-3xl font-bold text-green-600 dark:text-green-400">${receiptData.total.toFixed(2)}</p>
             </div>
 
             {/* Items List */}
-            <div className="space-y-4 mb-8 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3 mb-8 max-h-[400px] overflow-y-auto pr-2">
               {receiptData.items.map((item, index) => (
                 <div
                   key={index}
-                  className="p-4 bg-white/50 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-lg hover:bg-white/70 dark:hover:bg-white/10 transition-colors"
+                  className="backdrop-blur-xl bg-gradient-to-br from-white/80 to-slate-50/50 dark:from-white/5 dark:to-slate-950/10 border border-white/30 dark:border-white/10 rounded-xl p-4 hover:bg-white/90 dark:hover:bg-white/10 hover:border-primary/30 dark:hover:border-primary/20 hover:shadow-md transition-all duration-300"
                 >
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <p className="font-medium">{item.name}</p>
+                      <p className="font-semibold text-base text-foreground">{item.name}</p>
                       {item.quantity > 1 && (
-                        <p className="text-xs text-muted-foreground mt-1">Quantity: {item.quantity}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-muted-foreground">
+                            Quantity: {item.quantity}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ${item.ppu.toFixed(2)} each
+                          </span>
+                        </div>
                       )}
                     </div>
                     <div className="text-right ml-4">
-                      <p className="font-semibold">${item.price.toFixed(2)}</p>
-                      {item.quantity > 1 && (
-                        <p className="text-xs text-muted-foreground">${item.ppu.toFixed(2)} each</p>
-                      )}
+                      <p className="font-bold text-lg text-foreground">${item.price.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>

@@ -4,6 +4,7 @@ import { useState } from "react"
 import type React from "react"
 import { Upload, Zap, Check, X, AlertCircle } from "lucide-react"
 import { SavingsSuggestions } from "./savings-suggestions"
+import { ProcessingDemo } from "./processing-demo"
 
 interface ReceiptItem {
   name: string
@@ -133,7 +134,7 @@ export function ReceiptUploadSidebar() {
     <>
       {/* Upload State */}
       {state === "upload" && (
-        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 rounded-2xl p-8 h-fit lg:sticky lg:top-8">
+        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 rounded-2xl p-8 max-w-2xl mx-auto">
           <h3 className="text-lg font-semibold mb-6">Upload Receipt</h3>
 
           <label className="block">
@@ -169,45 +170,30 @@ export function ReceiptUploadSidebar() {
 
       {/* Fetching State */}
       {state === "fetching" && (
-        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 rounded-2xl p-8 md:p-12 h-fit lg:sticky lg:top-8">
-          <div className="flex flex-col items-center gap-6">
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-pulse" />
-              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
-              <Zap className="absolute inset-0 m-auto w-8 h-8 text-primary" />
-            </div>
-
-            <div className="text-center">
-              <p className="font-semibold text-lg mb-6">Analyzing receipt…</p>
-              <p className="text-sm text-muted-foreground mb-8">Extracting purchase information</p>
-
-              {/* Animated progress indicators */}
-              <div className="space-y-3">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-2 bg-gradient-to-r from-primary/20 via-primary/50 to-primary/20 rounded-full overflow-hidden"
-                    style={{
-                      animation: `slideIn 2s ease-in-out ${i * 0.3}s infinite`,
-                    }}
-                  >
-                    <div
-                      className="h-full bg-gradient-to-r from-transparent via-primary to-transparent"
-                      style={{
-                        animation: `slide 1.5s ease-in-out ${i * 0.3}s infinite`,
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 rounded-2xl p-8 max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary animate-pulse" />
+              Processing Receipt
+            </h3>
           </div>
+
+          {uploadedFile && (
+            <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+              <p className="text-sm font-medium mb-1">File: {uploadedFile.name}</p>
+              <p className="text-xs text-muted-foreground">
+                Size: {(uploadedFile.size / 1024).toFixed(2)} KB
+              </p>
+            </div>
+          )}
+
+          <ProcessingDemo isProcessing={true} />
         </div>
       )}
 
       {/* Error State */}
       {state === "error" && (
-        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 rounded-2xl p-8 h-fit lg:sticky lg:top-8">
+        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 rounded-2xl p-8 max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold flex items-center gap-2 text-red-600 dark:text-red-400">
               <AlertCircle className="w-5 h-5" />
@@ -233,31 +219,39 @@ export function ReceiptUploadSidebar() {
 
       {/* Results State */}
       {state === "results" && receiptData && (
-        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 rounded-2xl p-8 h-fit lg:sticky lg:top-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Check className="w-5 h-5 text-green-500" />
-                Receipt Analyzed
-              </h3>
-                <p className="text-sm text-muted-foreground mt-1">
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="backdrop-blur-xl bg-gradient-to-br from-white/90 to-blue-50/50 dark:from-white/10 dark:to-blue-950/20 border border-blue-200/30 dark:border-blue-800/20 rounded-2xl p-6 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                  <Check className="w-6 h-6 text-green-500" />
+                  Receipt Analyzed
+                </h3>
+                <p className="text-sm text-muted-foreground mt-2">
                   Found {receiptData.items.length} item{receiptData.items.length !== 1 ? 's' : ''} from {receiptData.orderName}
                 </p>
+              </div>
+              <button onClick={handleReset} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <button onClick={handleReset} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-              <X className="w-5 h-5" />
-            </button>
           </div>
 
+          {/* Cards Container - Flex Row with Wrapping */}
+          <div className="flex flex-row flex-wrap gap-6">
             {/* Merchant Info Card */}
-            <div className="mb-6 p-4 bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 rounded-xl">
-              <p className="text-sm text-muted-foreground mb-1">Merchant</p>
-              <p className="text-2xl font-bold">{receiptData.orderName}</p>
+            <div className="flex-1 min-w-[280px] max-w-[400px] backdrop-blur-xl bg-gradient-to-br from-blue-50/90 to-indigo-50/90 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/40 dark:border-blue-800/30 rounded-xl p-5 shadow-md">
+              <p className="text-sm text-blue-700 dark:text-blue-300 mb-2 font-medium">Merchant</p>
+              <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{receiptData.orderName}</p>
               {receiptData.location && (
-                <p className="text-xs text-muted-foreground mt-1">{receiptData.location}</p>
+                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-2 flex items-center gap-1">
+                  <span>📍</span> {receiptData.location}
+                </p>
               )}
               {receiptData.dateTime && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1 flex items-center gap-1">
+                  <span>📅</span>
                   {new Date(receiptData.dateTime).toLocaleDateString('en-US', { 
                     month: 'short', 
                     day: 'numeric', 
@@ -269,71 +263,85 @@ export function ReceiptUploadSidebar() {
               )}
             </div>
 
-          {/* Total Amount Card */}
-          <div className="mb-6 p-4 bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl">
-            <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
-            <p className="text-3xl font-bold text-green-600 dark:text-green-400">${receiptData.total.toFixed(2)}</p>
-          </div>
+            {/* Total Amount Card */}
+            <div className="flex-1 min-w-[280px] max-w-[400px] backdrop-blur-xl bg-gradient-to-br from-green-50/90 to-emerald-50/90 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200/40 dark:border-green-800/30 rounded-xl p-5 shadow-md">
+              <p className="text-sm text-green-700 dark:text-green-300 mb-2 font-medium">Total Amount</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">${receiptData.total.toFixed(2)}</p>
+            </div>
 
-          {/* Items List */}
-          <div className="space-y-4 mb-8 max-h-[400px] overflow-y-auto">
-            {receiptData.items.map((item, index) => (
-              <div
-                key={index}
-                className="p-4 bg-white/50 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-lg hover:bg-white/70 dark:hover:bg-white/10 transition-colors"
-              >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{item.name}</p>
-                      {item.quantity > 1 && (
-                        <p className="text-xs text-muted-foreground mt-1">Quantity: {item.quantity}</p>
-                      )}
-                    </div>
-                    <div className="text-right ml-4">
-                      <p className="font-semibold text-sm">${item.price.toFixed(2)}</p>
-                      {item.quantity > 1 && (
-                        <p className="text-xs text-muted-foreground">${item.ppu.toFixed(2)} each</p>
-                      )}
+            {/* Items List Card */}
+            <div className="w-full min-w-[280px] backdrop-blur-xl bg-gradient-to-br from-white/90 to-slate-50/50 dark:from-white/10 dark:to-slate-950/20 border border-slate-200/30 dark:border-slate-800/20 rounded-xl p-6 shadow-md">
+              <h4 className="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300">Items</h4>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                {receiptData.items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="backdrop-blur-xl bg-gradient-to-br from-white/80 to-slate-50/50 dark:from-white/5 dark:to-slate-950/10 border border-white/30 dark:border-white/10 rounded-xl p-4 hover:bg-white/90 dark:hover:bg-white/10 hover:border-primary/30 dark:hover:border-primary/20 hover:shadow-md transition-all duration-300"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="font-semibold text-base text-foreground">{item.name}</p>
+                        {item.quantity > 1 && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-muted-foreground">
+                              Quantity: {item.quantity}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              ${item.ppu.toFixed(2)} each
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right ml-4">
+                        <p className="font-bold text-lg text-foreground">${item.price.toFixed(2)}</p>
+                      </div>
                     </div>
                   </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Summary */}
-          {receiptData.subtotal && (
-            <div className="mb-6 space-y-2 text-sm">
-              {receiptData.subtotal !== receiptData.total && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal:</span>
-                  <span>${receiptData.subtotal.toFixed(2)}</span>
-                </div>
-              )}
-              {receiptData.tax > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Tax:</span>
-                  <span>${receiptData.tax.toFixed(2)}</span>
-                </div>
-              )}
-              {receiptData.tip && receiptData.tip > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Tip:</span>
-                  <span>${receiptData.tip.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-semibold pt-2 border-t border-white/20">
-                <span>Total:</span>
-                <span>${receiptData.total.toFixed(2)}</span>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Savings Suggestions */}
-          <SavingsSuggestions receiptItems={receiptData.items} />
+            {/* Summary Card */}
+            {receiptData.subtotal && (
+              <div className="flex-1 min-w-[280px] max-w-[400px] backdrop-blur-xl bg-gradient-to-br from-white/90 to-amber-50/50 dark:from-white/10 dark:to-amber-950/20 border border-amber-200/30 dark:border-amber-800/20 rounded-xl p-5 shadow-md">
+                <h4 className="text-lg font-semibold mb-4 text-amber-700 dark:text-amber-300">Summary</h4>
+                <div className="space-y-2 text-sm">
+                  {receiptData.subtotal !== receiptData.total && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal:</span>
+                      <span>${receiptData.subtotal.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {receiptData.tax > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Tax:</span>
+                      <span>${receiptData.tax.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {receiptData.tip && receiptData.tip > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Tip:</span>
+                      <span>${receiptData.tip.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-semibold pt-2 border-t border-amber-200/30 dark:border-amber-800/20">
+                    <span>Total:</span>
+                    <span>${receiptData.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
+          {/* Savings Suggestions - Full Width Below Cards */}
+          <div className="w-full">
+            <SavingsSuggestions receiptItems={receiptData.items} />
+          </div>
+
+          {/* Action Button */}
           <button
             onClick={handleReset}
-            className="w-full py-3 px-4 bg-gradient-to-br from-primary to-accent text-primary-foreground rounded-lg font-medium hover:shadow-lg transition-all duration-300"
+            className="w-full py-4 px-6 bg-gradient-to-r from-green-600 to-emerald-600 dark:from-green-500 dark:to-emerald-500 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
           >
             Analyze Another Receipt
           </button>
