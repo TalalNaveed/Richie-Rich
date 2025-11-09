@@ -2,16 +2,19 @@ import { Wallet } from "lucide-react"
 import { type NessieAccount } from "@/lib/nessie-api"
 
 interface BalanceSummaryProps {
-  accounts: NessieAccount[]
+  accounts?: NessieAccount[]
+  balance?: number // Direct balance from database (takes priority)
   loading?: boolean
 }
 
-export function BalanceSummary({ accounts, loading = false }: BalanceSummaryProps) {
+export function BalanceSummary({ accounts, balance, loading = false }: BalanceSummaryProps) {
   const accountsArray = Array.isArray(accounts) ? accounts : []
   const account = accountsArray[0]
 
-  // Calculate total balance across all accounts
-  const totalBalance = accountsArray.reduce((sum, acc) => {
+  // Use direct balance if provided, otherwise calculate from accounts
+  const totalBalance = balance !== undefined 
+    ? balance 
+    : accountsArray.reduce((sum, acc) => {
     return sum + (acc.balance || 0)
   }, 0)
 
@@ -39,7 +42,9 @@ export function BalanceSummary({ accounts, loading = false }: BalanceSummaryProp
           <p className="text-sm font-medium text-muted-foreground mb-1">Available Balance</p>
           <p className="text-4xl font-bold text-primary">{formattedBalance}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {account?.nickname || account?.type || 'Capital One'}
+            {balance !== undefined 
+              ? 'Account Balance' 
+              : (account?.nickname || account?.type || 'Capital One')}
           </p>
         </div>
         <Wallet className="w-6 h-6 text-muted-foreground" />

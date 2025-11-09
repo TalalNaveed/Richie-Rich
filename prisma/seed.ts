@@ -313,12 +313,13 @@ async function seedUser(userId: number, externalUserId: string, userName?: strin
   console.log(`🌱 Seeding User ${userId} (external_user_id: ${externalUserId})`);
   console.log('='.repeat(60));
 
-  // Fetch user data from Capital One
-  const customerData = userName ? { name: userName } : await fetchCapitalOneCustomer();
-  const balance = await fetchCapitalOneBalance();
+  // Fetch user data from Capital One (only if userName not provided)
+  const customerData = userName ? null : await fetchCapitalOneCustomer();
+  const balance = userName ? null : await fetchCapitalOneBalance();
   
-  const finalUserName = customerData?.name || `User ${userId}`;
-  const userBalance = balance !== null ? balance : (userId === 1 ? 1000.0 : 5000.0);
+  const finalUserName = userName || customerData?.name || `User ${userId}`;
+  // Use provided balance from API, or use defaults based on userId
+  const userBalance = balance !== null ? balance : (userId === 1 ? 19218.0 : 25990.0);
 
   // Get or create user
   let user = await prisma.user.findUnique({
@@ -470,19 +471,20 @@ async function main() {
   console.log('🌱 Starting database seed with API data for 2 users...\n');
 
   try {
-    // Generate random external_user_ids for each user
-    const user1ExternalId = generateRandomUserId();
-    const user2ExternalId = generateRandomUserId();
+    // Use specific external_user_ids for each user to get different data from Knot API
+    // User 1 -> "user-123", User 2 -> "user-456"
+    const user1ExternalId = "user-123";
+    const user2ExternalId = "user-456";
 
-    console.log(`Generated external_user_ids:`);
+    console.log(`Using external_user_ids:`);
     console.log(`  User 1: ${user1ExternalId}`);
     console.log(`  User 2: ${user2ExternalId}\n`);
 
-    // Seed User 1
-    const user1Result = await seedUser(1, user1ExternalId);
+    // Seed User 1 - Chloë Grace Moretz
+    const user1Result = await seedUser(1, user1ExternalId, 'Chloë Grace Moretz');
     
-    // Seed User 2 with different name
-    const user2Result = await seedUser(2, user2ExternalId, 'Jane Smith');
+    // Seed User 2 - Shailene Woodley
+    const user2Result = await seedUser(2, user2ExternalId, 'Shailene Woodley');
 
     // Display final summary
     console.log(`\n${'='.repeat(60)}`);

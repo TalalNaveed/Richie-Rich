@@ -528,7 +528,7 @@ Rules:
         const ppu = quantity > 0 ? price / quantity : price;
         
         return {
-          name: item.item || `Item ${index + 1}`,
+        name: item.item || `Item ${index + 1}`,
           quantity: quantity,
           ppu: ppu,
           price: price

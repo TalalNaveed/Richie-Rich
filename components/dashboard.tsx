@@ -114,8 +114,8 @@ export function Dashboard({ userData, userId }: DashboardProps = {}) {
       {/* Theme Toggle */}
       <ThemeToggle />
       
-      <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-12">
           <div className="fade-in flex items-center gap-4">
@@ -134,7 +134,11 @@ export function Dashboard({ userData, userId }: DashboardProps = {}) {
 
           {/* Credit Score Card */}
           <div className="fade-in delay-100">
-            <BalanceSummary accounts={accounts} loading={loading} />
+            <BalanceSummary 
+              accounts={userData ? undefined : accounts} 
+              balance={userData ? userBalance : undefined}
+              loading={loading} 
+            />
           </div>
         </div>
 
@@ -179,7 +183,7 @@ export function Dashboard({ userData, userId }: DashboardProps = {}) {
 
       {/* X News Widget - Fixed bottom right */}
       <XNewsWidget />
-      </main>
+    </main>
     </>
   )
 }

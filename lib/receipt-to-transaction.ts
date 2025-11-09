@@ -87,7 +87,7 @@ export async function saveReceiptAsTransaction(
   
   try {
     // Default to User 1 for all receipt uploads (demo requirement)
-    if (!userId) {
+  if (!userId) {
       userId = 1;
       console.log(`👤 [DB] No userId provided, defaulting to User 1 for receipt upload`);
       
@@ -97,74 +97,74 @@ export async function saveReceiptAsTransaction(
       });
       if (!user1) {
         throw new Error('User 1 not found in database. Please seed the database first.');
-      }
+  }
     }
     
     console.log(`👤 [DB] Saving receipt transaction for User ${userId}`);
 
     // Convert receipt items to Prisma transaction items format
     const items = receiptData.items.map((item, index) => {
-      // Use ppu from item or fallback to prices array
-      const pricePerUnit = item.ppu || (receiptData.ppu && receiptData.ppu[index]) || item.price || 0;
-      // Use price from item or fallback to prices array
-      const totalPrice = item.price || (receiptData.prices && receiptData.prices[index]) || (pricePerUnit * item.quantity);
-      
-      return {
+    // Use ppu from item or fallback to prices array
+    const pricePerUnit = item.ppu || (receiptData.ppu && receiptData.ppu[index]) || item.price || 0;
+    // Use price from item or fallback to prices array
+    const totalPrice = item.price || (receiptData.prices && receiptData.prices[index]) || (pricePerUnit * item.quantity);
+    
+    return {
         itemName: item.name,
-        quantity: item.quantity || (receiptData.quantities && receiptData.quantities[index]) || 1,
-        pricePerUnit: pricePerUnit,
+      quantity: item.quantity || (receiptData.quantities && receiptData.quantities[index]) || 1,
+      pricePerUnit: pricePerUnit,
         totalPrice: totalPrice
-      };
-    });
+    };
+  });
 
-    // If no items, create a single item from the total
-    if (items.length === 0) {
-      console.warn(`⚠️  [DB] No items found, creating single item from total`);
-      items.push({
+  // If no items, create a single item from the total
+  if (items.length === 0) {
+    console.warn(`⚠️  [DB] No items found, creating single item from total`);
+    items.push({
         itemName: receiptData.orderName || 'Unknown Merchant',
-        quantity: 1,
-        pricePerUnit: receiptData.total,
+      quantity: 1,
+      pricePerUnit: receiptData.total,
         totalPrice: receiptData.total
-      });
-    }
+    });
+  }
 
     // Calculate total amount from items
     const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
-    // Parse dateTime from receipt (ISO format)
-    let transactionDate: Date;
-    if (receiptData.dateTime) {
-      transactionDate = new Date(receiptData.dateTime);
-      
-      // If date parsing fails, use current date
-      if (isNaN(transactionDate.getTime())) {
-        console.warn(`⚠️  [DB] Invalid dateTime format: ${receiptData.dateTime}, using current date`);
-        transactionDate = new Date();
-      }
-    } else {
-      console.warn(`⚠️  [DB] No dateTime provided, using current date`);
+  // Parse dateTime from receipt (ISO format)
+  let transactionDate: Date;
+  if (receiptData.dateTime) {
+    transactionDate = new Date(receiptData.dateTime);
+    
+    // If date parsing fails, use current date
+    if (isNaN(transactionDate.getTime())) {
+      console.warn(`⚠️  [DB] Invalid dateTime format: ${receiptData.dateTime}, using current date`);
       transactionDate = new Date();
     }
+  } else {
+    console.warn(`⚠️  [DB] No dateTime provided, using current date`);
+    transactionDate = new Date();
+  }
 
-    // Ensure order name is not empty
-    let orderName = receiptData.orderName?.trim();
-    if (!orderName || orderName === '') {
-      console.warn(`⚠️  [DB] Warning: orderName is missing in receipt data`);
-      orderName = 'Unknown Merchant';
-    }
-    
-    console.log(`💾 [DB] Transaction data prepared:`, {
-      orderName,
-      location: receiptData.location || 'N/A',
+  // Ensure order name is not empty
+  let orderName = receiptData.orderName?.trim();
+  if (!orderName || orderName === '') {
+    console.warn(`⚠️  [DB] Warning: orderName is missing in receipt data`);
+    orderName = 'Unknown Merchant';
+  }
+  
+  console.log(`💾 [DB] Transaction data prepared:`, {
+    orderName,
+    location: receiptData.location || 'N/A',
       dateTime: transactionDate.toISOString(),
-      itemsCount: items.length,
+    itemsCount: items.length,
       subtotal: receiptData.subtotal !== undefined ? `$${receiptData.subtotal.toFixed(2)}` : 'N/A',
       tax: receiptData.tax !== undefined ? `$${receiptData.tax.toFixed(2)}` : 'N/A',
       tip: receiptData.tip !== undefined ? `$${receiptData.tip.toFixed(2)}` : 'N/A',
       total: `$${totalAmount.toFixed(2)}`,
       source: 'receipt'
-    });
-    
+  });
+  
     // Check for duplicates BEFORE saving
     const existingTransactionId = await checkForDuplicate(
       userId,
@@ -181,9 +181,9 @@ export async function saveReceiptAsTransaction(
     // Save to Prisma database with source marker
     const transaction = await prisma.transaction.create({
       data: {
-        userId,
+    userId,
         merchantName: orderName,
-        location: receiptData.location || null,
+    location: receiptData.location || null,
         datetime: transactionDate,
         source: 'receipt', // Mark as coming from receipt upload
         items: {

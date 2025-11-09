@@ -21,8 +21,10 @@ export async function GET(request: Request) {
     }
     // If no userId specified, show transactions from all users
 
-    const transactions = await prisma.transaction.findMany({
-      where,
+    // Fetch receipt transactions sorted by ID (most recently uploaded first)
+    const receiptWhere = { ...where, source: 'receipt' }
+    const receiptTransactions = await prisma.transaction.findMany({
+      where: receiptWhere,
       include: {
         items: true,
         user: {
@@ -33,10 +35,32 @@ export async function GET(request: Request) {
         },
       },
       orderBy: {
-        datetime: 'desc',
+        id: 'desc', // Most recently uploaded receipts first
+      },
+      take: limit, // Get enough receipts to potentially fill the list
+    })
+
+    // Fetch Knot transactions (everything that's not a receipt) sorted by transaction date
+    const knotWhere = { ...where, source: { not: 'receipt' } }
+    const knotTransactions = await prisma.transaction.findMany({
+      where: knotWhere,
+      include: {
+        items: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        datetime: 'desc', // Sort by actual transaction date
       },
       take: limit,
     })
+
+    // Combine: receipts first (by upload order), then Knot transactions (by transaction date)
+    const transactions = [...receiptTransactions, ...knotTransactions].slice(0, limit)
 
     // Transform Prisma format to component format
     const formattedTransactions = transactions.map(tx => {
@@ -57,7 +81,7 @@ export async function GET(request: Request) {
         userName: tx.user.name,
         name: tx.merchantName,
         location: tx.location,
-        source: tx.source || 'manual', // Include source field
+        source: tx.source === 'receipt' ? 'receipt' : 'knot', // If not receipt, it's from Knot
         items: items.map(item => item.name), // Array of item names
         quantities: items.map(item => item.quantity),
         prices: items.map(item => item.price),

@@ -63,11 +63,21 @@ function mapDatabaseTransaction(dbTx: DatabaseTransaction): Transaction {
 
   // Map items from database format - ensure we properly extract items
   const items = dbTx.items && Array.isArray(dbTx.items) && dbTx.items.length > 0
-    ? dbTx.items.map((itemName, index) => ({
-        name: itemName || `Item ${index + 1}`,
-        price: (dbTx.prices && dbTx.prices[index]) || (dbTx.pricePerUnit && dbTx.pricePerUnit[index] * (dbTx.quantities[index] || 1)) || 0,
-        quantity: (dbTx.quantities && dbTx.quantities[index]) || 1,
-      }))
+    ? dbTx.items.map((itemName, index) => {
+        // prices[index] is the total price for the item line
+        const totalPrice = (dbTx.prices && dbTx.prices[index]) || (dbTx.pricePerUnit && dbTx.pricePerUnit[index] * (dbTx.quantities[index] || 1)) || 0
+        const quantity = (dbTx.quantities && dbTx.quantities[index]) || 1
+        const pricePerUnit = dbTx.pricePerUnit && dbTx.pricePerUnit[index] !== undefined 
+          ? dbTx.pricePerUnit[index] 
+          : (totalPrice / quantity)
+        
+        return {
+          name: itemName || `Item ${index + 1}`,
+          price: totalPrice, // Total price for this item line
+          pricePerUnit: pricePerUnit, // Price per unit
+          quantity: quantity,
+        }
+      })
     : []
 
   return {
@@ -185,8 +195,8 @@ export function RecentTransactions({ userId }: RecentTransactionsProps = {}) {
       <div>
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Recent Transactions</h2>
-            <p className="text-muted-foreground">Your latest financial activity</p>
+          <h2 className="text-2xl font-bold mb-2">Recent Transactions</h2>
+          <p className="text-muted-foreground">Your latest financial activity</p>
             <div className="flex items-center gap-3 mt-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <div className="w-4 h-4 relative">

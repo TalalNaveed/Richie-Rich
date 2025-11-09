@@ -25,9 +25,24 @@ const MERCHANT_CATEGORIES: Record<number, string> = {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const merchantId = searchParams.get("merchant_id")
-  const externalUserId = searchParams.get("external_user_id") || "user-123"
+  const userIdParam = searchParams.get("userId")
+  
+  // Map userId to different external_user_ids to get different data
+  // User 1 -> "user-123", User 2 -> "user-456", default -> "user-123"
+  const getExternalUserId = (userId: string | null): string => {
+    if (userId === "1") return "user-123"
+    if (userId === "2") return "user-456"
+    return "user-123" // Default fallback
+  }
+  
+  const externalUserId = searchParams.get("external_user_id") || getExternalUserId(userIdParam)
   const limit = parseInt(searchParams.get("limit") || "5", 10)
   const cursor = searchParams.get("cursor")
+
+  // Log which external_user_id is being used
+  if (userIdParam) {
+    console.log(`📋 Using external_user_id "${externalUserId}" for userId ${userIdParam}`)
+  }
 
   // Get credentials from environment variables
   const clientId = process.env.KNOT_CLIENT_ID || "dda0778d-9486-47f8-bd80-6f2512f9bcdb"

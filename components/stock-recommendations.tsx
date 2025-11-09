@@ -157,8 +157,8 @@ export function StockRecommendations() {
           <div className="text-center py-12">
             <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
             <p className="text-muted-foreground">
-              No stock recommendations available. Check back later for updates based on recent news.
-            </p>
+            No stock recommendations available. Check back later for updates based on recent news.
+          </p>
           </div>
         </CardContent>
       </Card>
@@ -174,18 +174,18 @@ export function StockRecommendations() {
               <div className="p-2 rounded-lg bg-primary/10">
                 <TrendingUp className="h-6 w-6 text-primary" />
               </div>
-              Stock Recommendations
-            </CardTitle>
-            <div className="flex items-center gap-2">
+            Stock Recommendations
+          </CardTitle>
+          <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-sm font-semibold px-3 py-1">
                 {recommendations.length} Stocks
               </Badge>
-              {isCached && (
-                <Badge variant="outline" className="text-xs">
-                  Cached
-                </Badge>
-              )}
-            </div>
+            {isCached && (
+              <Badge variant="outline" className="text-xs">
+                Cached
+              </Badge>
+            )}
+          </div>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
             Top investment opportunities powered by Dedalus MCP with real-time market analysis
@@ -203,15 +203,15 @@ export function StockRecommendations() {
               >
                 {/* Recommendation Badge */}
                 <div className="absolute top-3 right-3">
-                  <Badge
-                    className={`${getRecommendationColor(
-                      rec.recommendation
+                      <Badge
+                        className={`${getRecommendationColor(
+                          rec.recommendation
                     )} flex items-center gap-1.5 px-3 py-1 font-semibold shadow-sm`}
-                  >
-                    {getRecommendationIcon(rec.recommendation)}
-                    {rec.recommendation.toUpperCase()}
-                  </Badge>
-                </div>
+                      >
+                        {getRecommendationIcon(rec.recommendation)}
+                        {rec.recommendation.toUpperCase()}
+                      </Badge>
+                    </div>
 
                 {/* Stock Symbol and Company */}
                 <div className="mb-4 pr-24">
@@ -220,9 +220,9 @@ export function StockRecommendations() {
                     <span className="text-xs text-muted-foreground">#{index + 1}</span>
                   </div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    {rec.companyName}
-                  </p>
-                </div>
+                      {rec.companyName}
+                    </p>
+                  </div>
 
                 {/* Confidence and Risk */}
                 <div className="flex items-center justify-between mb-4 p-3 rounded-lg bg-muted/50">

@@ -3,19 +3,19 @@
 ## Quick Start
 
 1. **Clone the repository**
-   ```bash
+```bash
    git clone <repo-url>
-   cd HackPrinceton
+cd HackPrinceton
    ```
 
 2. **Install dependencies**
-   ```bash
+```bash
    pnpm install
-   ```
+```
 
 3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
+```bash
+cp .env.example .env
    # Edit .env and add your API keys
    # IMPORTANT: Make sure DATABASE_URL is set to:
    # DATABASE_URL="file:./bank.db"
@@ -27,12 +27,12 @@
    - No need to run migrations or seed scripts
 
 5. **Generate Prisma Client**
-   ```bash
+```bash
    npx prisma generate
    ```
 
 6. **Start the development server**
-   ```bash
+```bash
    pnpm dev
    ```
 

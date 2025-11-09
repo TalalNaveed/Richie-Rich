@@ -92,3 +92,4 @@ chmod +x test_research.sh
 - Empty arrays for `recentNews`, `riskFactors`, `opportunities`
 - Error messages in the response
 
+

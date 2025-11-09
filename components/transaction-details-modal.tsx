@@ -20,7 +20,8 @@ interface Transaction {
   source?: string // "knot", "receipt", "manual"
   items?: Array<{
     name: string
-    price: number
+    price: number // This is the TOTAL price for the item line
+    pricePerUnit?: number // Price per unit (if available)
     quantity?: number
   }>
 }
@@ -36,7 +37,17 @@ export function TransactionDetailsModal({ transaction, open, onClose }: Transact
 
   const isCredit = transaction.type === "credit"
   const totalItems = transaction.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0
-  const subtotal = transaction.items?.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) || transaction.amount
+  // Calculate subtotal correctly: item.price is already the total price for that item line
+  // So we just sum up all the item prices, don't multiply by quantity again
+  const subtotal = transaction.items?.reduce((sum, item) => {
+    // item.price is already the total price (totalPrice from database)
+    // If pricePerUnit is available, use that * quantity for accuracy
+    if (item.pricePerUnit !== undefined && item.quantity) {
+      return sum + (item.pricePerUnit * item.quantity)
+    }
+    // Otherwise, use item.price directly (it's already the total)
+    return sum + item.price
+  }, 0) || transaction.amount
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -148,7 +159,16 @@ export function TransactionDetailsModal({ transaction, open, onClose }: Transact
               </div>
               <div className="space-y-2">
                 {transaction.items.map((item, idx) => {
-                  const itemTotal = item.price * (item.quantity || 1)
+                  // Calculate item total correctly
+                  // If pricePerUnit is available, use that * quantity
+                  // Otherwise, item.price is already the total price
+                  const itemTotal = item.pricePerUnit !== undefined && item.quantity
+                    ? item.pricePerUnit * item.quantity
+                    : item.price
+                  const displayPrice = item.pricePerUnit !== undefined && item.quantity
+                    ? item.pricePerUnit
+                    : (item.price / (item.quantity || 1))
+                  
                   return (
                     <div
                       key={idx}
@@ -157,7 +177,7 @@ export function TransactionDetailsModal({ transaction, open, onClose }: Transact
                       <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          ${item.price.toFixed(2)} {item.quantity && item.quantity > 1 && `× ${item.quantity}`}
+                          ${displayPrice.toFixed(2)} {item.quantity && item.quantity > 1 && `× ${item.quantity}`}
                         </p>
                       </div>
                       <div className="text-right">

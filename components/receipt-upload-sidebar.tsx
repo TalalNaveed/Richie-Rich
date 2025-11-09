@@ -3,6 +3,7 @@
 import { useState } from "react"
 import type React from "react"
 import { Upload, Zap, Check, X, AlertCircle } from "lucide-react"
+import { SavingsSuggestions } from "./savings-suggestions"
 
 interface ReceiptItem {
   name: string
@@ -326,6 +327,9 @@ export function ReceiptUploadSidebar() {
               </div>
             </div>
           )}
+
+          {/* Savings Suggestions */}
+          <SavingsSuggestions receiptItems={receiptData.items} />
 
           <button
             onClick={handleReset}
