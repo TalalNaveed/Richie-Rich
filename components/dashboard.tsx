@@ -5,6 +5,7 @@ import { BalanceSummary } from "./balance-summary"
 import { RecentTransactions } from "./recent-transactions"
 import { ReceiptUploadSidebar } from "./receipt-upload-sidebar"
 import { AnalyticsDashboard } from "./analytics-dashboard"
+import { XNewsWidget } from "./x-news-widget"
 import { getCustomers, getAccounts, type NessieAccount, type NessieCustomer } from "@/lib/nessie-api"
 
 export function Dashboard() {
@@ -108,6 +109,9 @@ export function Dashboard() {
           <AnalyticsDashboard />
         </div>
       </div>
+
+      {/* X News Widget - Fixed bottom right */}
+      <XNewsWidget />
     </main>
   )
 }
