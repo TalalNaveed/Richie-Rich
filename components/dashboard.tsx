@@ -6,6 +6,7 @@ import { RecentTransactions } from "./recent-transactions"
 import { ReceiptUploadSidebar } from "./receipt-upload-sidebar"
 import { AnalyticsDashboard } from "./analytics-dashboard"
 import { XNewsWidget } from "./x-news-widget"
+import { ThemeToggle } from "./theme-toggle"
 import { Footer } from "./footer"
 import { getCustomers, getAccounts, type NessieAccount, type NessieCustomer } from "@/lib/nessie-api"
 
@@ -64,8 +65,12 @@ export function Dashboard() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <>
+      {/* Theme Toggle */}
+      <ThemeToggle />
+      
+      <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-12">
           <div className="fade-in flex items-center gap-4">
@@ -118,6 +123,7 @@ export function Dashboard() {
 
       {/* X News Widget - Fixed bottom right */}
       <XNewsWidget />
-    </main>
+      </main>
+    </>
   )
 }
