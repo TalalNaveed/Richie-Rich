@@ -1,6 +1,7 @@
 "use client"
 
-import { X, Calendar, Store, Tag, DollarSign, Package } from "lucide-react"
+import { X, Calendar, Store, Tag, DollarSign, Package, Receipt } from "lucide-react"
+import Image from "next/image"
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,7 @@ interface Transaction {
   date: string
   type: "credit" | "debit"
   category: string
+  source?: string // "knot", "receipt", "manual"
   items?: Array<{
     name: string
     price: number
@@ -42,6 +44,20 @@ export function TransactionDetailsModal({ transaction, open, onClose }: Transact
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">
             <Store className="w-6 h-6" />
             {transaction.merchant}
+            {transaction.source === 'knot' && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 ml-2">
+                <div className="w-4 h-4 relative">
+                  <Image src="/knot.avif" alt="Knot" fill className="object-contain" />
+                </div>
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Knot API</span>
+              </div>
+            )}
+            {transaction.source === 'receipt' && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-500/10 border border-green-500/20 ml-2">
+                <Receipt className="w-4 h-4 text-green-600 dark:text-green-400" />
+                <span className="text-xs text-green-600 dark:text-green-400 font-medium">Receipt Upload</span>
+              </div>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -77,6 +93,39 @@ export function TransactionDetailsModal({ transaction, open, onClose }: Transact
               </div>
             </div>
           </div>
+
+          {/* Data Source */}
+          {transaction.source && (
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="w-5 h-5 flex items-center justify-center mt-0.5">
+                {transaction.source === 'knot' ? (
+                  <div className="w-5 h-5 relative">
+                    <Image src="/knot.avif" alt="Knot" fill className="object-contain" />
+                  </div>
+                ) : transaction.source === 'receipt' ? (
+                  <Receipt className="w-5 h-5 text-muted-foreground" />
+                ) : null}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Data Source</p>
+                <p className="font-medium capitalize">
+                  {transaction.source === 'knot' && 'Knot API'}
+                  {transaction.source === 'receipt' && 'Receipt Upload'}
+                  {transaction.source === 'manual' && 'Manual Entry'}
+                </p>
+                {transaction.source === 'knot' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This transaction was automatically imported from Knot API
+                  </p>
+                )}
+                {transaction.source === 'receipt' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This transaction was created from an uploaded receipt
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Items List */}
           {transaction.items && transaction.items.length > 0 && (

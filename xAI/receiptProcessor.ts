@@ -317,17 +317,11 @@ export async function processReceiptImage(imagePath: string): Promise<ReceiptDat
           {
             parts: [
               {
-                text: `You are an OCR engine. Do not guess or fill in missing text.
+                text: `Extract receipt items as JSON array. Output ONLY valid JSON, no explanations.
 
-TASK:
-
-1. Read the text *exactly* as it appears in the image of the receipt.
-
-2. Output ONLY a JSON array of { "item": "...", "price": "..." }.
-
-3. If any line is unreadable, output it as { "item": null, "price": null }.
-
-4. Do not write explanations, summaries, or additional commentary.`
+Format: [{"item": "name", "price": "amount"}, ...]
+If unreadable: {"item": null, "price": null}
+Read text exactly as shown.`
               },
               {
                 inline_data: {
@@ -340,7 +334,9 @@ TASK:
         ],
         generationConfig: {
           temperature: 0.0,
-          maxOutputTokens: 2000,
+          maxOutputTokens: 8000, // Increased to handle longer receipts and thinking tokens
+          topP: 0.95,
+          topK: 40,
         }
       })
     });
@@ -356,10 +352,24 @@ TASK:
     const geminiData = await geminiResponse.json();
     console.log(`🔍 [Gemini] API response received, parsing content...`);
     
+    // Extract content and check for MAX_TOKENS finish reason
+    const finishReason = geminiData.candidates?.[0]?.finishReason;
     const geminiContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
     
-    if (!geminiContent) {
+    if (finishReason === 'MAX_TOKENS') {
+      console.warn(`⚠️  [Gemini] Response hit MAX_TOKENS limit. Usage:`, geminiData.usageMetadata);
+      if (geminiContent && geminiContent.length > 0) {
+        console.log(`⚠️  [Gemini] Using partial content (${geminiContent.length} chars) - response was truncated`);
+        // Continue with partial content - might still be usable
+      } else {
+        console.error('❌ [Gemini] MAX_TOKENS hit and no content available');
+        console.error('❌ [Gemini] Consider increasing maxOutputTokens or simplifying the prompt');
+        console.error('❌ [Gemini] Response data:', JSON.stringify(geminiData, null, 2));
+        return null;
+      }
+    } else if (!geminiContent) {
       console.error('❌ [Gemini] No content received from Gemini');
+      console.error('❌ [Gemini] Finish reason:', finishReason);
       console.error('❌ [Gemini] Response data:', JSON.stringify(geminiData, null, 2));
       return null;
     }

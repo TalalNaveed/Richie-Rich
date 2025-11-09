@@ -189,19 +189,27 @@ export async function POST(request: NextRequest) {
     fs.writeFileSync(outputPath, JSON.stringify(receiptData, null, 2));
     console.log(`💾 [API] Saved receipt JSON to: ${outputPath}`);
 
-    // Save to database as transaction
+    // Save to database as transaction with robust duplicate detection
+    let transactionId: number | null = null;
     try {
       console.log(`💾 [API] Saving receipt to database as transaction...`);
       const { saveReceiptAsTransaction } = await import('@/lib/receipt-to-transaction');
-      const transactionId = await saveReceiptAsTransaction(receiptData);
-      console.log(`✅ [API] Saved receipt as transaction ${transactionId} in database`);
+      
+      // Check if transaction already exists before saving
+      const existingTxId = await saveReceiptAsTransaction(receiptData);
+      transactionId = existingTxId;
+      
+      // Note: saveReceiptAsTransaction will return existing ID if duplicate is found
+      // We can't easily detect if it's a duplicate vs new without additional tracking
+      // But the function logs when duplicates are found
+      console.log(`✅ [API] Transaction saved/processed with ID: ${transactionId}`);
     } catch (dbError) {
       console.error(`⚠️  [API] Failed to save transaction to database:`, dbError);
       if (dbError instanceof Error) {
         console.error(`⚠️  [API] Database error details:`, dbError.message);
         console.error(`⚠️  [API] Database error stack:`, dbError.stack);
       }
-      // Continue even if database save fails
+      // Continue even if database save fails - receipt is still saved to file system
     }
 
     console.log(`✅ [API] Receipt processing complete! Returning success response`);
@@ -209,7 +217,10 @@ export async function POST(request: NextRequest) {
       success: true,
       receipt: receiptData,
       filename,
-      message: 'Receipt processed successfully'
+      transactionId: transactionId || null,
+      message: transactionId 
+        ? 'Receipt processed and saved successfully' 
+        : 'Receipt processed but not saved to database'
     });
   } catch (error) {
     console.error('❌ [API] Error processing receipt:', error);

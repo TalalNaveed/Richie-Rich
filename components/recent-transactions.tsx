@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw, Receipt } from "lucide-react"
+import Image from "next/image"
 import { TransactionCard } from "./transaction-card"
 import { TransactionDetailsModal } from "./transaction-details-modal"
 
@@ -12,6 +13,7 @@ interface Transaction {
   date: string
   type: "credit" | "debit"
   category: string
+  source?: string // "knot", "receipt", "manual"
   items?: Array<{
     name: string
     price: number
@@ -26,6 +28,7 @@ interface DatabaseTransaction {
   accountId?: number
   name: string
   location?: string
+  source?: string // "knot", "receipt", "manual"
   items: string[]
   quantities: number[]
   prices: number[]
@@ -48,13 +51,8 @@ function mapDatabaseTransaction(dbTx: DatabaseTransaction): Transaction {
   // All transactions from receipts are debits (money spent)
   const type: "credit" | "debit" = "debit"
 
-  // Get merchant name - ensure it's not empty or null
-  let merchant = dbTx.name;
-  
-  // If name is empty, null, or "Unknown Merchant", try location
-  if (!merchant || merchant.trim() === '' || merchant === 'Unknown Merchant') {
-    merchant = dbTx.location || "Unknown Merchant";
-  }
+  // Get merchant name - use name field (which contains merchantName from Prisma)
+  let merchant = dbTx.name || dbTx.location || "Unknown Merchant";
   
   // Ensure we have a valid merchant name
   merchant = merchant.trim() || "Unknown Merchant";
@@ -78,11 +76,16 @@ function mapDatabaseTransaction(dbTx: DatabaseTransaction): Transaction {
     date: formattedDate,
     type,
     category,
+    source: dbTx.source || 'manual', // Include source
     items,
   }
 }
 
-export function RecentTransactions() {
+interface RecentTransactionsProps {
+  userId?: number
+}
+
+export function RecentTransactions({ userId }: RecentTransactionsProps = {}) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -102,8 +105,11 @@ export function RecentTransactions() {
       }
       setError(null)
       
-      // Fetch transactions from database API (uses first user by default)
-      const response = await fetch('/api/transactions/db?limit=50', { cache: 'no-store' })
+      // Fetch transactions from Prisma API
+      const url = userId 
+        ? `/api/transactions/prisma?limit=50&userId=${userId}`
+        : '/api/transactions/prisma?limit=50'
+      const response = await fetch(url, { cache: 'no-store' })
       
       if (!response.ok) {
         throw new Error(`Failed to fetch transactions: ${response.statusText}`)
@@ -111,9 +117,8 @@ export function RecentTransactions() {
       
       const dbTransactions: DatabaseTransaction[] = await response.json()
       
-      // Filter out old mock transactions - only show transactions with items from receipts
+      // Filter to only show transactions with items
       const validTransactions = dbTransactions.filter(tx => {
-        // Only show transactions that have items (from receipt processing)
         return tx.items && Array.isArray(tx.items) && tx.items.length > 0
       })
       
@@ -129,7 +134,7 @@ export function RecentTransactions() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [userId])
 
   useEffect(() => {
     fetchTransactions()
@@ -159,12 +164,22 @@ export function RecentTransactions() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  if (loading) {
+  if (loading && transactions.length === 0) {
     return (
       <div>
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold mb-2">Recent Transactions</h2>
-          <p className="text-muted-foreground">Your latest financial activity</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Recent Transactions</h2>
+            <p className="text-muted-foreground">Your latest financial activity</p>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="w-4 h-4 relative">
+                  <Image src="/knot.avif" alt="Knot" fill className="object-contain animate-pulse" />
+                </div>
+                <span>Fetching from Knot...</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -207,6 +222,19 @@ export function RecentTransactions() {
         <div>
           <h2 className="text-2xl font-bold mb-2">Recent Transactions</h2>
           <p className="text-muted-foreground">Your latest financial activity</p>
+          <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="w-4 h-4 relative">
+                <Image src="/knot.avif" alt="Knot" fill className="object-contain" />
+              </div>
+              <span>Knot API</span>
+            </div>
+            <span className="text-muted-foreground">•</span>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Receipt className="w-4 h-4" />
+              <span>Receipt Upload</span>
+            </div>
+          </div>
         </div>
         <button
           onClick={() => fetchTransactions(true)}

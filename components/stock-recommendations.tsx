@@ -83,20 +83,23 @@ export function StockRecommendations() {
 
   if (loading && recommendations.length === 0) {
     return (
-      <Card>
+      <Card className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border-white/20 dark:border-white/10 shadow-xl">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+          <CardTitle className="text-2xl font-bold flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <TrendingUp className="h-6 w-6 text-primary" />
+            </div>
             Stock Recommendations
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="h-4 w-1/3" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-5 rounded-xl border bg-card space-y-3">
+                <Skeleton className="h-6 w-24" />
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-10 w-full" />
               </div>
             ))}
           </div>
@@ -107,19 +110,26 @@ export function StockRecommendations() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border-white/20 dark:border-white/10 shadow-xl">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+          <CardTitle className="text-2xl font-bold flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <TrendingUp className="h-6 w-6 text-primary" />
+            </div>
             Stock Recommendations
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>{error}</span>
+          <div className="flex items-center justify-between p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <div>
+                <p className="font-semibold text-destructive">Failed to load recommendations</p>
+                <p className="text-sm text-muted-foreground mt-1">{error}</p>
+              </div>
+            </div>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={fetchRecommendations}
               className="ml-auto"
@@ -134,17 +144,22 @@ export function StockRecommendations() {
 
   if (recommendations.length === 0) {
     return (
-      <Card>
+      <Card className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border-white/20 dark:border-white/10 shadow-xl">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+          <CardTitle className="text-2xl font-bold flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <TrendingUp className="h-6 w-6 text-primary" />
+            </div>
             Stock Recommendations
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            No stock recommendations available. Check back later for updates based on recent news.
-          </p>
+          <div className="text-center py-12">
+            <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+            <p className="text-muted-foreground">
+              No stock recommendations available. Check back later for updates based on recent news.
+            </p>
+          </div>
         </CardContent>
       </Card>
     )
@@ -152,75 +167,105 @@ export function StockRecommendations() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Stock Recommendations
-            <Badge variant="secondary" className="ml-auto">
-              {recommendations.length}
-            </Badge>
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-muted-foreground">
-              Top 10 stocks to invest in - Powered by Dedalus MCP
-            </p>
-            {isCached && (
-              <Badge variant="outline" className="text-xs">
-                Cached
+      <Card className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border-white/20 dark:border-white/10 shadow-xl">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-bold flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <TrendingUp className="h-6 w-6 text-primary" />
+              </div>
+              Stock Recommendations
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-sm font-semibold px-3 py-1">
+                {recommendations.length} Stocks
               </Badge>
-            )}
+              {isCached && (
+                <Badge variant="outline" className="text-xs">
+                  Cached
+                </Badge>
+              )}
+            </div>
           </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            Top investment opportunities powered by Dedalus MCP with real-time market analysis
+          </p>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {recommendations.map((rec) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recommendations.map((rec, index) => (
               <div
                 key={rec.symbol}
-                className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                className="group relative p-5 rounded-xl border-2 bg-gradient-to-br from-card to-muted/30 hover:from-card hover:to-muted/50 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                style={{
+                  animationDelay: `${index * 100}ms`,
+                }}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg">{rec.symbol}</h3>
-                      <Badge
-                        className={`${getRecommendationColor(
-                          rec.recommendation
-                        )} flex items-center gap-1`}
-                      >
-                        {getRecommendationIcon(rec.recommendation)}
-                        {rec.recommendation.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {rec.companyName}
-                    </p>
+                {/* Recommendation Badge */}
+                <div className="absolute top-3 right-3">
+                  <Badge
+                    className={`${getRecommendationColor(
+                      rec.recommendation
+                    )} flex items-center gap-1.5 px-3 py-1 font-semibold shadow-sm`}
+                  >
+                    {getRecommendationIcon(rec.recommendation)}
+                    {rec.recommendation.toUpperCase()}
+                  </Badge>
+                </div>
+
+                {/* Stock Symbol and Company */}
+                <div className="mb-4 pr-24">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <h3 className="font-bold text-2xl text-foreground">{rec.symbol}</h3>
+                    <span className="text-xs text-muted-foreground">#{index + 1}</span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold">
-                      {rec.confidence}% confidence
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {rec.companyName}
+                  </p>
+                </div>
+
+                {/* Confidence and Risk */}
+                <div className="flex items-center justify-between mb-4 p-3 rounded-lg bg-muted/50">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Confidence</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full transition-all duration-500"
+                          style={{ width: `${rec.confidence}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-foreground min-w-[3rem]">
+                        {rec.confidence}%
+                      </span>
                     </div>
-                    <div
-                      className={`text-xs ${getRiskColor(rec.riskLevel)}`}
+                  </div>
+                  <div className="text-right ml-4">
+                    <p className="text-xs text-muted-foreground mb-1">Risk Level</p>
+                    <Badge
+                      variant="outline"
+                      className={`${getRiskColor(rec.riskLevel)} border-current font-semibold`}
                     >
-                      {rec.riskLevel.toUpperCase()} risk
-                    </div>
+                      {rec.riskLevel.toUpperCase()}
+                    </Badge>
                   </div>
                 </div>
 
-                <p className="text-sm text-foreground mb-3">
+                {/* Reasoning */}
+                <p className="text-sm text-foreground/80 mb-4 line-clamp-2 leading-relaxed">
                   {rec.reasoning}
                 </p>
 
-                <div className="flex items-center gap-2 pt-3 border-t">
+                {/* Action Button */}
+                <div className="pt-3 border-t border-border/50">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setResearchSymbol(rec.symbol)}
-                    className="flex items-center gap-2"
+                    className="w-full flex items-center justify-center gap-2 hover:bg-primary hover:text-primary-foreground transition-colors"
                   >
                     <Search className="h-4 w-4" />
-                    Learn More
+                    Deep Research
                   </Button>
                 </div>
               </div>

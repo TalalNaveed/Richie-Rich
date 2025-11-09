@@ -5,18 +5,53 @@ import { BalanceSummary } from "./balance-summary"
 import { RecentTransactions } from "./recent-transactions"
 import { ReceiptUploadSidebar } from "./receipt-upload-sidebar"
 import { AnalyticsDashboard } from "./analytics-dashboard"
+import { StockRecommendations } from "./stock-recommendations"
 import { XNewsWidget } from "./x-news-widget"
 import { ThemeToggle } from "./theme-toggle"
 import { Footer } from "./footer"
 import { getCustomers, getAccounts, type NessieAccount, type NessieCustomer } from "@/lib/nessie-api"
 
-export function Dashboard() {
+type UserData = {
+  id: number
+  name: string
+  balance: number
+  transactions: Array<{
+    id: number
+    merchantName: string
+    location: string | null
+    datetime: string | Date
+    items: Array<{
+      id: number
+      itemName: string
+      quantity: number
+      pricePerUnit: number
+      totalPrice: number
+    }>
+  }>
+}
+
+interface DashboardProps {
+  userData?: UserData
+  userId?: number
+}
+
+export function Dashboard({ userData, userId }: DashboardProps = {}) {
   const [userName, setUserName] = useState("")
+  const [userBalance, setUserBalance] = useState<number>(0)
   const [accounts, setAccounts] = useState<NessieAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // If userData is provided, use it directly
+    if (userData) {
+      setUserName(userData.name)
+      setUserBalance(userData.balance)
+      setLoading(false)
+      return
+    }
+
+    // Otherwise fetch from API
     async function fetchData() {
       try {
         setLoading(true)
@@ -37,21 +72,31 @@ export function Dashboard() {
           ? [fetchedAccounts]
           : []
 
-        console.log("Fetched accounts:", accountsArray.length)
+        // Filter accounts with balance < 20,000 USD
+        const filteredAccounts = accountsArray.filter((account) => {
+          const balance = account.balance || 0
+          return balance < 20000
+        })
 
-        if (accountsArray.length > 0) {
-          setAccounts(accountsArray)
+        console.log("Fetched accounts:", accountsArray.length, "Filtered (< $20k):", filteredAccounts.length)
+
+        if (filteredAccounts.length > 0) {
+          setAccounts(filteredAccounts)
+          
+          // Calculate total balance from filtered accounts
+          const totalBalance = filteredAccounts.reduce((sum, account) => sum + (account.balance || 0), 0)
+          setUserBalance(totalBalance)
 
           // pick a random name if customers available
           if (customers.length > 0) {
             const randomCustomer = customers[Math.floor(Math.random() * customers.length)]
             setUserName(`${randomCustomer.first_name} ${randomCustomer.last_name}`)
           } else {
-            setUserName(accountsArray[0].nickname || "User")
+            setUserName(filteredAccounts[0].nickname || "User")
           }
         } else {
           setUserName("User")
-          setError("No accounts found.")
+          setError("No accounts found with balance < $20,000.")
         }
       } catch (err) {
         console.error("Error fetching data:", err)
@@ -62,7 +107,7 @@ export function Dashboard() {
     }
 
     fetchData()
-  }, [])
+  }, [userData])
 
   return (
     <>
@@ -97,7 +142,7 @@ export function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
           {/* Recent Transactions - Takes 2 columns on desktop */}
           <div className="lg:col-span-2 fade-in delay-200">
-            <RecentTransactions />
+            <RecentTransactions userId={userId || userData?.id} />
           </div>
 
           {/* Receipt Upload Sidebar - Takes 1 column on desktop, full width on mobile */}
@@ -107,7 +152,7 @@ export function Dashboard() {
         </div>
 
         {/* Analytics Section */}
-        <div className="fade-in delay-400">
+        <div className="fade-in delay-400 mb-12">
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-2">Financial Analytics</h2>
             <p className="text-muted-foreground">
@@ -115,6 +160,17 @@ export function Dashboard() {
             </p>
           </div>
           <AnalyticsDashboard />
+        </div>
+
+        {/* Stock Recommendations Section */}
+        <div className="fade-in delay-500">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-2">Stock Recommendations</h2>
+            <p className="text-muted-foreground">
+              Top investment opportunities powered by Dedalus MCP with real-time market analysis
+            </p>
+          </div>
+          <StockRecommendations />
         </div>
       </div>
 

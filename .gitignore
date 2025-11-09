@@ -310,4 +310,13 @@ cypress/screenshots/
 # ================================
 test-results/
 playwright-report/
-playwright/.cache/
+playwright/.cache/# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+mcp/__pycache__/
+
+# MCP cache files
+mcp/cache/*.json

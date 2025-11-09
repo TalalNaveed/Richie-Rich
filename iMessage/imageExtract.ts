@@ -198,15 +198,22 @@ async function processSingleImage(
         const receiptData = await processSingleReceipt(filename);
         
         if (receiptData) {
-          console.log(`✅ Receipt processed: ${receiptData.merchantName || 'Unknown Merchant'}`);
+          console.log(`✅ Receipt processed: ${receiptData.orderName || 'Unknown Merchant'}`);
           
-          // Save receipt as transaction to database for first user
+          // Save receipt as transaction to database with robust error handling
           try {
             const transactionId = await saveReceiptAsTransaction(receiptData);
-            console.log(`💾 Saved receipt as transaction ${transactionId} in database`);
+            if (transactionId) {
+              console.log(`💾 Saved receipt as transaction ${transactionId} in database`);
+            } else {
+              console.log(`⏭️  Receipt skipped (duplicate or invalid)`);
+            }
           } catch (dbError) {
             console.error(`⚠️  Failed to save transaction to database:`, dbError);
-            // Continue even if database save fails
+            if (dbError instanceof Error) {
+              console.error(`⚠️  Database error details:`, dbError.message);
+            }
+            // Continue even if database save fails - receipt is still saved to file system
           }
         } else {
           console.log(`⚠️  Receipt processing returned no data for ${filename}`);

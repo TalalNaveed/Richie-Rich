@@ -1,4 +1,5 @@
-import { ArrowUpRight, ArrowDownLeft, Wallet, CreditCard, Music, UtensilsCrossed } from "lucide-react"
+import { ArrowUpRight, ArrowDownLeft, Wallet, CreditCard, Music, UtensilsCrossed, Receipt } from "lucide-react"
+import Image from "next/image"
 
 interface TransactionCardProps {
   transaction: {
@@ -8,6 +9,7 @@ interface TransactionCardProps {
     date: string
     type: "credit" | "debit"
     category: string
+    source?: string // "knot", "receipt", "manual"
     items?: Array<{
       name: string
       price: number
@@ -51,7 +53,23 @@ export function TransactionCard({ transaction, onClick }: TransactionCardProps) 
           </div>
 
           <div className="flex-1">
-            <h3 className="font-semibold text-foreground">{transaction.merchant}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-foreground">{transaction.merchant}</h3>
+              {transaction.source === 'knot' && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20">
+                  <div className="w-3 h-3 relative">
+                    <Image src="/knot.avif" alt="Knot" fill className="object-contain" />
+                  </div>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Knot</span>
+                </div>
+              )}
+              {transaction.source === 'receipt' && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20">
+                  <Receipt className="w-3 h-3 text-green-600 dark:text-green-400" />
+                  <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">Receipt</span>
+                </div>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">{transaction.category}</p>
             {hasItems && (
               <div className="mt-2 space-y-1">
