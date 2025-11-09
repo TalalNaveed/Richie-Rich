@@ -1,0 +1,78 @@
+{
+  "data": {
+    "symbol": "INTC",
+    "companyName": "Intel Corporation",
+    "currentPrice": 38.13,
+    "priceChange": {
+      "value": 0.91,
+      "percent": 2.44
+    },
+    "historicalPerformance": {
+      "oneYear": 81.0,
+      "threeYears": 60.0,
+      "fiveYears": 50.0
+    },
+    "financialMetrics": {
+      "revenue": "$53.07B",
+      "netIncome": "$-4.77B",
+      "earningsPerShare": "-4.77",
+      "debtToEquity": 1.73
+    },
+    "analystRatings": {
+      "buy": 25,
+      "hold": 8,
+      "sell": 2,
+      "averageRating": 4.2
+    },
+    "recentNews": [
+      {
+        "title": "Intel shares jump as investments, cost cuts catapult turnaround efforts",
+        "date": "2025-10-24",
+        "source": "Reuters",
+        "sentiment": "positive"
+      },
+      {
+        "title": "Intel beats third-quarter profit estimates as cost cuts, investments pay off",
+        "date": "2025-10-23",
+        "source": "Reuters",
+        "sentiment": "positive"
+      },
+      {
+        "title": "Nvidia to invest $5 billion in struggling rival Intel",
+        "date": "2025-10-15",
+        "source": "AP News",
+        "sentiment": "positive"
+      },
+      {
+        "title": "Trump turns $11.1B in US government funds into a 10% stake in downtrodden Intel",
+        "date": "2025-09-15",
+        "source": "AP News",
+        "sentiment": "positive"
+      },
+      {
+        "title": "Intel Stock Price Forecast - INTC Soars Jumps After Unveiling New \u201cCrescent Island\u201d AI Chip",
+        "date": "2025-10-15",
+        "source": "TradingNews",
+        "sentiment": "positive"
+      }
+    ],
+    "riskFactors": [
+      "Ongoing yield issues with 18A manufacturing process expected to persist until 2027",
+      "Intense competition from AMD and Nvidia in AI and semiconductor markets"
+    ],
+    "opportunities": [
+      "Strategic investments from Nvidia and U.S. government enhancing financial stability",
+      "Launch of 'Crescent Island' AI chip positioning Intel in AI market"
+    ],
+    "recommendation": {
+      "action": "buy",
+      "confidence": 85,
+      "reasoning": "Intel's recent strategic investments and cost-cutting measures have led to a significant turnaround, with positive market reactions and improved financial metrics. The launch of the 'Crescent Island' AI chip and support from major investors position Intel favorably in the competitive semiconductor market.",
+      "priceTarget": 50.0,
+      "timeHorizon": "12 months"
+    },
+    "researchDate": "2025-11-09T03:23:51.058111",
+    "cached": false
+  },
+  "cached_at": "2025-11-09T03:23:51.058204"
+}

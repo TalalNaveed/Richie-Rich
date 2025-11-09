@@ -1,0 +1,78 @@
+{
+  "data": {
+    "symbol": "META",
+    "companyName": "Meta Platforms Inc.",
+    "currentPrice": 621.71,
+    "priceChange": {
+      "value": 2.93,
+      "percent": 0.47
+    },
+    "historicalPerformance": {
+      "oneYear": 69.74,
+      "threeYears": 120.8,
+      "fiveYears": 150.5
+    },
+    "financialMetrics": {
+      "revenue": "$40.59B",
+      "netIncome": "$15.69B",
+      "earningsPerShare": 6.03,
+      "debtToEquity": 1.73
+    },
+    "analystRatings": {
+      "buy": 24,
+      "hold": 0,
+      "sell": 0,
+      "averageRating": 4.0
+    },
+    "recentNews": [
+      {
+        "title": "Meta shares slide after company projects higher expenses for 2026",
+        "date": "2025-10-29",
+        "source": "AP News",
+        "sentiment": "negative"
+      },
+      {
+        "title": "Meta posts sharply higher Q4 profit, revenue, topping Wall Street's expectations",
+        "date": "2024-01-30",
+        "source": "AP News",
+        "sentiment": "positive"
+      },
+      {
+        "title": "KeyBanc cuts Meta stock price target to $645, maintains overweight",
+        "date": "2025-04-09",
+        "source": "Investing.com",
+        "sentiment": "neutral"
+      },
+      {
+        "title": "ValueAct takes $1-billion stake in Meta, source says",
+        "date": "2024-11-12",
+        "source": "Reuters",
+        "sentiment": "positive"
+      },
+      {
+        "title": "Meta makes it official",
+        "date": "2025-06-13",
+        "source": "Axios",
+        "sentiment": "neutral"
+      }
+    ],
+    "riskFactors": [
+      "Regulatory challenges, including antitrust cases",
+      "High capital expenditures for AI investments"
+    ],
+    "opportunities": [
+      "Expansion of AI-driven advertising",
+      "Growth in virtual reality and metaverse initiatives"
+    ],
+    "recommendation": {
+      "action": "buy",
+      "confidence": 85,
+      "reasoning": "Despite recent concerns over increased expenses and regulatory challenges, Meta's strong financial performance, robust revenue growth, and strategic investments in AI and the metaverse position it well for future growth. The company's dominant position in the social media market and ongoing innovation provide a solid foundation for sustained success.",
+      "priceTarget": 750.0,
+      "timeHorizon": "12 months"
+    },
+    "researchDate": "2025-11-09T03:24:11.906437",
+    "cached": false
+  },
+  "cached_at": "2025-11-09T03:24:11.906509"
+}

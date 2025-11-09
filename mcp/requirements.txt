@@ -1,0 +1,7 @@
+# Python dependencies for Dedalus Sonar Stock Research
+# Install with: pip install -r requirements.txt
+
+dedalus-labs>=0.1.0
+python-dotenv>=1.0.0
+# Note: OpenAI models are accessed through Dedalus - no OpenAI API key needed!
+

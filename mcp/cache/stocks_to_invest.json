@@ -1,0 +1,59 @@
+{
+  "data": {
+    "recommendedStocks": [
+      {
+        "symbol": "NVDA",
+        "companyName": "NVIDIA Corporation",
+        "reason": "Leading provider of GPUs for AI applications, benefiting from massive data center investments and high demand for AI computing capacity."
+      },
+      {
+        "symbol": "MSFT",
+        "companyName": "Microsoft Corporation",
+        "reason": "Dominant in cloud computing and AI, with Azure powering advanced AI applications and expanding into new industries like healthcare."
+      },
+      {
+        "symbol": "AAPL",
+        "companyName": "Apple Inc.",
+        "reason": "Expanding into augmented reality and subscription-based services, driving revenue growth and maintaining high brand loyalty."
+      },
+      {
+        "symbol": "GOOGL",
+        "companyName": "Alphabet Inc.",
+        "reason": "Excels in AI, digital advertising, and cloud services, with a diversified business model and focus on future technologies."
+      },
+      {
+        "symbol": "AMZN",
+        "companyName": "Amazon.com Inc.",
+        "reason": "Dominates e-commerce and cloud computing, with AWS driving significant growth and profitability, and expanding into new markets."
+      },
+      {
+        "symbol": "META",
+        "companyName": "Meta Platforms Inc.",
+        "reason": "Strong presence in social media and digital advertising, with ongoing investments in virtual reality and the metaverse."
+      },
+      {
+        "symbol": "TSLA",
+        "companyName": "Tesla Inc.",
+        "reason": "Leads in electric vehicles and renewable energy solutions, with advancements in autonomous driving technology and expanding global presence."
+      },
+      {
+        "symbol": "PYPL",
+        "companyName": "PayPal Holdings Inc.",
+        "reason": "A leading digital payment platform with a growing user base and expanding services, benefiting from the shift to online transactions."
+      },
+      {
+        "symbol": "NFLX",
+        "companyName": "Netflix Inc.",
+        "reason": "Dominates streaming services with a vast content library and global subscriber base, continuing to invest in original programming."
+      },
+      {
+        "symbol": "INTC",
+        "companyName": "Intel Corporation",
+        "reason": "A major player in semiconductor manufacturing, with ongoing investments in AI and data center technologies to drive future growth."
+      }
+    ],
+    "dateGenerated": "2025-11-09T03:23:40.281326",
+    "cached": false
+  },
+  "cached_at": "2025-11-09T03:23:40.281366"
+}
