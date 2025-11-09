@@ -11,6 +11,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const XAI_API_KEY = process.env.XAI_API_KEY || '';
 const XAI_API_URL = process.env.XAI_API_URL || 'https://api.x.ai/v1';
+const XAI_VISION_MODEL = process.env.XAI_VISION_MODEL || 'grok-2-vision-latest';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -61,6 +62,7 @@ export async function validateReceiptImage(imagePath: string): Promise<Validatio
     const mimeType = getMimeType(imagePath);
 
     // Call xAI Grok Vision API for validation
+    console.log(`🔍 [Validator] Calling xAI vision model: ${XAI_VISION_MODEL}`);
     const response = await fetch(`${XAI_API_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -68,7 +70,7 @@ export async function validateReceiptImage(imagePath: string): Promise<Validatio
         'Authorization': `Bearer ${XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'grok-2-vision-1212',
+        model: XAI_VISION_MODEL,
         messages: [
           {
             role: 'system',

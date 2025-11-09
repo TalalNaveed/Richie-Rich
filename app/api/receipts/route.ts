@@ -8,24 +8,22 @@ import { writeFile } from 'fs/promises';
 const RECEIPTS_DIR = path.resolve(process.cwd(), 'xAI/processed-receipts');
 
 export interface ReceiptData {
-  merchantName: string;
-  merchantAddress?: string;
-  date: string;
-  time?: string;
+  orderName: string;
+  location?: string;
   items: Array<{
     name: string;
     quantity: number;
+    ppu: number;
     price: number;
-    total: number;
   }>;
-  subtotal: number;
-  tax: number;
+  prices: number[];
+  ppu: number[];
+  quantities: number[];
+  dateTime: string;
+  subtotal?: number;
+  tax?: number;
   tip?: number;
   total: number;
-  paymentMethod?: string;
-  lastFourDigits?: string;
-  receiptNumber?: string;
-  categoryTags?: string[];
 }
 
 /**
@@ -56,26 +54,23 @@ export async function GET(request: NextRequest) {
     // Apply filters
     if (merchant) {
       receipts = receipts.filter(r => 
-        r.merchantName.toLowerCase().includes(merchant.toLowerCase())
+        r.orderName.toLowerCase().includes(merchant.toLowerCase())
       );
     }
 
     if (category) {
-      receipts = receipts.filter(r => 
-        r.categoryTags?.some(tag => 
-          tag.toLowerCase().includes(category.toLowerCase())
-        )
-      );
+      // Category filtering removed as categoryTags no longer exists in new format
+      // Can be re-added if needed
     }
 
     if (startDate) {
       const start = new Date(startDate);
-      receipts = receipts.filter(r => new Date(r.date) >= start);
+      receipts = receipts.filter(r => new Date(r.dateTime) >= start);
     }
 
     if (endDate) {
       const end = new Date(endDate);
-      receipts = receipts.filter(r => new Date(r.date) <= end);
+      receipts = receipts.filter(r => new Date(r.dateTime) <= end);
     }
 
     // Calculate summary stats
@@ -97,19 +92,24 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/receipts - Process a new receipt image
+ * POST /api/receipts - Process a new receipt image with xAI
  */
 export async function POST(request: NextRequest) {
+  console.log('📤 [API] POST /api/receipts - Receipt upload request received');
+  
   try {
     const formData = await request.formData();
     const file = formData.get('image') as File;
 
     if (!file) {
+      console.error('❌ [API] No image file provided in request');
       return NextResponse.json(
         { error: 'No image file provided' },
         { status: 400 }
       );
     }
+
+    console.log(`📁 [API] Received file: ${file.name} (${(file.size / 1024).toFixed(2)} KB, type: ${file.type})`);
 
     // Save the uploaded image to the saved-images directory
     const bytes = await file.arrayBuffer();
@@ -118,21 +118,110 @@ export async function POST(request: NextRequest) {
     const imagesDir = path.resolve(process.cwd(), 'iMessage/saved-images');
     if (!fs.existsSync(imagesDir)) {
       fs.mkdirSync(imagesDir, { recursive: true });
+      console.log(`📂 [API] Created images directory: ${imagesDir}`);
     }
 
     const filename = `upload-${Date.now()}-${file.name}`;
     const filepath = path.join(imagesDir, filename);
     await writeFile(filepath, buffer);
+    console.log(`💾 [API] Saved image to: ${filepath}`);
 
+    // Import validation and processing functions
+    console.log(`📦 [API] Importing validation and processing modules...`);
+    const { validateReceiptImage } = await import('@/iMessage/imageValidator');
+    const { processReceiptImage } = await import('@/xAI/receiptProcessor');
+    console.log(`✅ [API] Modules imported successfully`);
+
+    // Validate the image first
+    console.log(`🔍 [API] Starting image validation for: ${filename}`);
+    const validation = await validateReceiptImage(filepath);
+    console.log(`🔍 [API] Validation result:`, {
+      isValid: validation.isValid,
+      isReceipt: validation.isReceipt,
+      isClear: validation.isClear,
+      canExtract: validation.canExtract,
+      reason: validation.reason,
+      message: validation.message
+    });
+    
+    if (!validation.isValid) {
+      console.error(`❌ [API] Image validation failed: ${validation.message}`);
+      return NextResponse.json(
+        { 
+          error: validation.message || 'Image validation failed',
+          isValid: false
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log(`✅ [API] Validation passed, starting xAI processing...`);
+
+    // Process with xAI
+    console.log(`🤖 [API] Calling xAI processReceiptImage...`);
+    const receiptData = await processReceiptImage(filepath);
+    
+    if (!receiptData) {
+      console.error(`❌ [API] xAI processing returned null/undefined`);
+      return NextResponse.json(
+        { error: 'Failed to process receipt image' },
+        { status: 500 }
+      );
+    }
+
+    console.log(`✅ [API] xAI processing complete!`, {
+      orderName: receiptData.orderName,
+      location: receiptData.location || 'N/A',
+      itemsCount: receiptData.items?.length || 0,
+      total: receiptData.total,
+      dateTime: receiptData.dateTime
+    });
+
+    // Save receipt data to processed-receipts directory
+    const processedDir = path.resolve(process.cwd(), 'xAI/processed-receipts');
+    if (!fs.existsSync(processedDir)) {
+      fs.mkdirSync(processedDir, { recursive: true });
+      console.log(`📂 [API] Created processed receipts directory: ${processedDir}`);
+    }
+    
+    const outputFilename = `${path.parse(filename).name}.json`;
+    const outputPath = path.join(processedDir, outputFilename);
+    fs.writeFileSync(outputPath, JSON.stringify(receiptData, null, 2));
+    console.log(`💾 [API] Saved receipt JSON to: ${outputPath}`);
+
+    // Save to database as transaction
+    try {
+      console.log(`💾 [API] Saving receipt to database as transaction...`);
+      const { saveReceiptAsTransaction } = await import('@/lib/receipt-to-transaction');
+      const transactionId = await saveReceiptAsTransaction(receiptData);
+      console.log(`✅ [API] Saved receipt as transaction ${transactionId} in database`);
+    } catch (dbError) {
+      console.error(`⚠️  [API] Failed to save transaction to database:`, dbError);
+      if (dbError instanceof Error) {
+        console.error(`⚠️  [API] Database error details:`, dbError.message);
+        console.error(`⚠️  [API] Database error stack:`, dbError.stack);
+      }
+      // Continue even if database save fails
+    }
+
+    console.log(`✅ [API] Receipt processing complete! Returning success response`);
     return NextResponse.json({
-      message: 'Receipt uploaded successfully',
+      success: true,
+      receipt: receiptData,
       filename,
-      note: 'Run the receipt processor to extract data from this image'
+      message: 'Receipt processed successfully'
     });
   } catch (error) {
-    console.error('Error uploading receipt:', error);
+    console.error('❌ [API] Error processing receipt:', error);
+    if (error instanceof Error) {
+      console.error('❌ [API] Error message:', error.message);
+      console.error('❌ [API] Error stack:', error.stack);
+    }
     return NextResponse.json(
-      { error: 'Failed to upload receipt' },
+      { 
+        error: 'Failed to process receipt',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

@@ -415,6 +415,30 @@ export async function getTransactionStats(): Promise<{
 }
 
 /**
+ * Get the first user from the database, or create a default one if none exists
+ */
+export async function getFirstUser(): Promise<number> {
+  const database = await initDatabase();
+  
+  // Try to get the first user
+  const firstUser = await database.get(
+    'SELECT id FROM users ORDER BY id ASC LIMIT 1'
+  );
+  
+  if (firstUser) {
+    return firstUser.id;
+  }
+  
+  // Create a default user if none exists
+  const result = await database.run(
+    'INSERT INTO users (email, name) VALUES (?, ?)',
+    ['default@example.com', 'Default User']
+  );
+  
+  return result.lastID!;
+}
+
+/**
  * Close database connection
  */
 export async function closeDatabase(): Promise<void> {

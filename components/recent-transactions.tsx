@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react"
 import { TransactionCard } from "./transaction-card"
 import { TransactionDetailsModal } from "./transaction-details-modal"
-import { getTransactions, KnotTransaction } from "@/lib/knot-api"
 
 interface Transaction {
   id: string
@@ -20,104 +19,73 @@ interface Transaction {
   }>
 }
 
-// Map Knot API transaction to our Transaction interface
-function mapKnotTransaction(knotTx: KnotTransaction): Transaction {
-  // Format date - API uses 'datetime' field with ISO format
-  const getDate = (tx: any): Date => {
-    const dateStr = tx.datetime || tx.date || tx.created_at || tx.timestamp || tx.transaction_date || tx.purchase_date || tx.order_date
-    if (!dateStr) {
-      console.warn("No date found in transaction:", tx.id)
-      return new Date()
-    }
-    
-    // Try parsing as ISO string (API returns ISO format like "2024-01-30T06:57:24.069000")
-    const date = new Date(dateStr)
-    if (!isNaN(date.getTime())) {
-      return date
-    }
-    
-    // Try parsing as Unix timestamp (seconds or milliseconds)
-    const timestamp = typeof dateStr === 'number' ? dateStr : parseInt(String(dateStr), 10)
-    if (!isNaN(timestamp)) {
-      // If timestamp is in seconds (less than year 2000 in ms), convert to ms
-      const dateFromTs = timestamp < 946684800000 ? new Date(timestamp * 1000) : new Date(timestamp)
-      if (!isNaN(dateFromTs.getTime())) {
-        return dateFromTs
-      }
-    }
-    
-    console.warn("Could not parse date:", dateStr, "for transaction:", tx.id)
-    return new Date()
-  }
-  
-  const date = getDate(knotTx)
+// Database transaction interface
+interface DatabaseTransaction {
+  id: number
+  userId: number
+  accountId?: number
+  name: string
+  location?: string
+  items: string[]
+  quantities: number[]
+  prices: number[]
+  pricePerUnit: number[]
+  totalAmount: number
+  datetime: string
+  createdAt: string
+}
+
+// Map database transaction to our Transaction interface
+function mapDatabaseTransaction(dbTx: DatabaseTransaction): Transaction {
+  // Parse date from database
+  const date = new Date(dbTx.datetime || dbTx.createdAt)
   const formattedDate = date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   })
 
-  // Determine transaction type based on amount
-  const type: "credit" | "debit" = knotTx.type || (knotTx.amount >= 0 ? "credit" : "debit")
+  // All transactions from receipts are debits (money spent)
+  const type: "credit" | "debit" = "debit"
 
-  // Get merchant name (where they bought from)
-  const merchant = knotTx.merchant_name || knotTx.merchant?.name || "Unknown Merchant"
+  // Get merchant name - ensure it's not empty or null
+  let merchant = dbTx.name;
+  
+  // If name is empty, null, or "Unknown Merchant", try location
+  if (!merchant || merchant.trim() === '' || merchant === 'Unknown Merchant') {
+    merchant = dbTx.location || "Unknown Merchant";
+  }
+  
+  // Ensure we have a valid merchant name
+  merchant = merchant.trim() || "Unknown Merchant";
 
-  // Get category
-  const category = knotTx.category || knotTx.merchant?.category || "Other"
+  // Default category (could be enhanced with categoryTags from receipt)
+  const category = "Other"
 
-  // Extract items from transaction - API uses 'products' array
-  const items = knotTx.products || knotTx.items || knotTx.line_items || []
+  // Map items from database format - ensure we properly extract items
+  const items = dbTx.items && Array.isArray(dbTx.items) && dbTx.items.length > 0
+    ? dbTx.items.map((itemName, index) => ({
+        name: itemName || `Item ${index + 1}`,
+        price: (dbTx.prices && dbTx.prices[index]) || (dbTx.pricePerUnit && dbTx.pricePerUnit[index] * (dbTx.quantities[index] || 1)) || 0,
+        quantity: (dbTx.quantities && dbTx.quantities[index]) || 1,
+      }))
+    : []
 
   return {
-    id: knotTx.id || knotTx.external_id || "",
+    id: `db-${dbTx.id}`,
     merchant,
-    amount: Math.abs(knotTx.amount || 0),
+    amount: Math.abs(dbTx.totalAmount || 0),
     date: formattedDate,
     type,
     category,
-    items: items.map((item: any) => {
-      // Price is in item.price.unit_price (as a string in the API response)
-      const priceValue = 
-        (item.price && (item.price.unit_price || item.price.unitPrice)) ||
-        item.unit_price || 
-        item.unitPrice || 
-        (item.price && (item.price.total || item.price.sub_total)) ||
-        item.price || 
-        item.amount || 
-        item.cost || 
-        item.total_price || 
-        item.totalPrice ||
-        item.line_total ||
-        item.lineTotal ||
-        0
-      
-      // Convert to number (API returns prices as strings)
-      let price = 0
-      if (typeof priceValue === 'number') {
-        price = priceValue
-      } else if (typeof priceValue === 'string') {
-        // Remove currency symbols and parse
-        const cleaned = priceValue.replace(/[^0-9.-]/g, '')
-        price = parseFloat(cleaned) || 0
-      }
-      
-      // Ensure quantity is a number
-      const quantityValue = item.quantity || item.qty || item.quantity_ordered || 1
-      const quantity = typeof quantityValue === 'number' ? quantityValue : parseInt(String(quantityValue), 10) || 1
-      
-      return {
-        name: item.name || item.description || item.title || item.product_name || item.productName || "Unknown Item",
-        price,
-        quantity,
-      }
-    }),
+    items,
   }
 }
 
 export function RecentTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -125,37 +93,54 @@ export function RecentTransactions() {
 
   const TRANSACTIONS_PER_PAGE = 5
 
-  useEffect(() => {
-    async function fetchTransactions() {
-      try {
+  const fetchTransactions = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true)
+      } else {
         setLoading(true)
-        setError(null)
-        // Use a consistent user ID for all transactions
-        // Fetch more transactions to support pagination
-        const userId = "user-123"
-        const knotTransactions = await getTransactions(undefined, userId, 50)
-        
-        // Log raw transactions for debugging
-        console.log("Raw transactions from API:", knotTransactions)
-        
-        const mappedTransactions = knotTransactions.map(mapKnotTransaction)
-        
-        // Log mapped transactions for debugging
-        console.log("Mapped transactions:", mappedTransactions)
-        
-        setTransactions(mappedTransactions)
-      } catch (err) {
-        console.error("Error fetching transactions:", err)
-        setError(err instanceof Error ? err.message : "Failed to load transactions")
-        // Fallback to empty array on error
-        setTransactions([])
-      } finally {
-        setLoading(false)
       }
+      setError(null)
+      
+      // Fetch transactions from database API (uses first user by default)
+      const response = await fetch('/api/transactions/db?limit=50', { cache: 'no-store' })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch transactions: ${response.statusText}`)
+      }
+      
+      const dbTransactions: DatabaseTransaction[] = await response.json()
+      
+      // Filter out old mock transactions - only show transactions with items from receipts
+      const validTransactions = dbTransactions.filter(tx => {
+        // Only show transactions that have items (from receipt processing)
+        return tx.items && Array.isArray(tx.items) && tx.items.length > 0
+      })
+      
+      const mappedTransactions = validTransactions.map(mapDatabaseTransaction)
+      
+      setTransactions(mappedTransactions)
+    } catch (err) {
+      console.error("Error fetching transactions:", err)
+      setError(err instanceof Error ? err.message : "Failed to load transactions")
+      // Fallback to empty array on error
+      setTransactions([])
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-
-    fetchTransactions()
   }, [])
+
+  useEffect(() => {
+    fetchTransactions()
+    
+    // Poll for new transactions every 10 seconds
+    const interval = setInterval(() => {
+      fetchTransactions(true)
+    }, 10000)
+    
+    return () => clearInterval(interval)
+  }, [fetchTransactions])
 
   // Calculate pagination
   const totalPages = Math.ceil(transactions.length / TRANSACTIONS_PER_PAGE)
@@ -218,9 +203,19 @@ export function RecentTransactions() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-2">Recent Transactions</h2>
-        <p className="text-muted-foreground">Your latest financial activity</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Recent Transactions</h2>
+          <p className="text-muted-foreground">Your latest financial activity</p>
+        </div>
+        <button
+          onClick={() => fetchTransactions(true)}
+          disabled={refreshing}
+          className="p-2 rounded-lg backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 hover:bg-white/95 dark:hover:bg-white/15 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Refresh transactions"
+        >
+          <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       <div className="space-y-3">

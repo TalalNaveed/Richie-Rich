@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 import { IMessageSDK, Message } from '@photon-ai/imessage-kit';
 import dotenv from 'dotenv';
 import { validateReceiptImage, ValidationResult } from './imageValidator.js';
+import { processSingleReceipt } from '../xAI/receiptProcessor.js';
+import { saveReceiptAsTransaction } from '../lib/receipt-to-transaction.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -192,15 +194,31 @@ async function processSingleImage(
     if (AUTO_PROCESS) {
       console.log(`🤖 Auto-processing with xAI...`);
       try {
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const execPromise = promisify(exec);
+        // Process the receipt image directly with xAI
+        const receiptData = await processSingleReceipt(filename);
         
-        const xaiDir = path.resolve(__dirname, '../xAI');
-        await execPromise(`cd "${xaiDir}" && npm run process`, { timeout: 60000 });
+        if (receiptData) {
+          console.log(`✅ Receipt processed: ${receiptData.merchantName || 'Unknown Merchant'}`);
+          
+          // Save receipt as transaction to database for first user
+          try {
+            const transactionId = await saveReceiptAsTransaction(receiptData);
+            console.log(`💾 Saved receipt as transaction ${transactionId} in database`);
+          } catch (dbError) {
+            console.error(`⚠️  Failed to save transaction to database:`, dbError);
+            // Continue even if database save fails
+          }
+        } else {
+          console.log(`⚠️  Receipt processing returned no data for ${filename}`);
+        }
+        
         console.log(`✨ Processing complete for ${filename}!`);
       } catch (processError) {
         console.error(`⚠️  Auto-process failed for ${filename}:`, processError);
+        if (processError instanceof Error) {
+          console.error('Error details:', processError.message);
+          console.error('Stack:', processError.stack);
+        }
         return { success: false, filename, error: 'Processing failed' };
       }
     }

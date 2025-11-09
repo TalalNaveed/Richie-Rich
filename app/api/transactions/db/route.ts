@@ -5,6 +5,7 @@ import {
   getTransactionById, 
   getTransactionStats,
   getOrCreateUser,
+  getFirstUser,
   createOrUpdateAccount,
   type TransactionData,
   type UserData,
@@ -114,20 +115,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     
-    const userId = searchParams.get('userId') ? parseInt(searchParams.get('userId')!) : undefined
+    const userIdParam = searchParams.get('userId')
+    const userId = userIdParam ? parseInt(userIdParam) : await getFirstUser()
     const accountId = searchParams.get('accountId') ? parseInt(searchParams.get('accountId')!) : undefined
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
     const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : undefined
     const startDate = searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : undefined
     const endDate = searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : undefined
     const merchantName = searchParams.get('merchantName') || undefined
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      )
-    }
 
     const transactions = await getTransactions({
       userId,
