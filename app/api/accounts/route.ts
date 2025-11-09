@@ -1,8 +1,11 @@
+
 import { NextResponse } from "next/server"
+
 
 export async function GET(request: Request) {
   // Get API key from environment variable (server-side only)
   const apiKey = process.env.NESSIE_API_KEY || request.headers.get("x-api-key")
+
 
   if (!apiKey) {
     console.error("API key is missing. Set NESSIE_API_KEY environment variable.")
@@ -12,12 +15,13 @@ export async function GET(request: Request) {
     )
   }
 
+
   try {
     // Use HTTP as per the API documentation
     const apiUrl = `http://api.nessieisreal.com/enterprise/accounts?key=${apiKey}`
     console.log("Fetching enterprise accounts from:", apiUrl.replace(apiKey, "***"))
     console.log("API Key present:", !!apiKey, "Length:", apiKey?.length)
-    
+   
     const response = await fetch(apiUrl, {
       headers: {
         "Content-Type": "application/json",
@@ -27,27 +31,30 @@ export async function GET(request: Request) {
       cache: "no-store",
     })
 
+
     console.log("API Response status:", response.status)
     console.log("API Response headers:", Object.fromEntries(response.headers.entries()))
+
 
     if (!response.ok) {
       const errorText = await response.text()
       console.error("API Error:", response.status, response.statusText)
       console.error("API Error details:", errorText)
-      
-      
+     
+     
       return NextResponse.json(
         { error: `Failed to fetch accounts: ${response.statusText}`, details: errorText, status: response.status },
         { status: response.status }
       )
     }
 
+
     const responseData = await response.json()
     console.log("Enterprise accounts fetched - type:", typeof responseData, "Is array:", Array.isArray(responseData))
-    
+   
     // Extract the accounts array from the response
     let accountsArray: any[] = []
-    
+   
     if (Array.isArray(responseData)) {
       // Direct array response
       accountsArray = responseData
@@ -72,12 +79,12 @@ export async function GET(request: Request) {
         }
       }
     }
-    
+   
     console.log("Normalized accounts array:", accountsArray?.length || 0, "accounts")
     if (accountsArray.length > 0) {
       console.log("First account:", accountsArray[0].nickname || accountsArray[0]._id)
     }
-    
+   
     return NextResponse.json(accountsArray)
   } catch (error) {
     console.error("Fetch error:", error)
@@ -88,3 +95,5 @@ export async function GET(request: Request) {
     )
   }
 }
+
+

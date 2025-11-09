@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { BalanceSummary } from "./balance-summary"
 import { RecentTransactions } from "./recent-transactions"
-import { InlineReceiptFlow } from "./inline-receipt-flow"
+import { ReceiptUploadSidebar } from "./receipt-upload-sidebar"
 import { AnalyticsDashboard } from "./analytics-dashboard"
 import { getCustomers, getAccounts, type NessieAccount, type NessieCustomer } from "@/lib/nessie-api"
 
@@ -12,7 +12,6 @@ export function Dashboard() {
   const [accounts, setAccounts] = useState<NessieAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showReceiptFlow, setShowReceiptFlow] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
@@ -64,7 +63,7 @@ export function Dashboard() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-12">
           <div className="fade-in">
@@ -85,17 +84,18 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Transactions */}
-        <div className="fade-in delay-200 mb-12">
-          <RecentTransactions onAddReceipt={() => setShowReceiptFlow(true)} />
-        </div>
-
-        {/* Inline Receipt Flow */}
-        {showReceiptFlow && (
-          <div className="fade-in delay-300 mb-12">
-            <InlineReceiptFlow onClose={() => setShowReceiptFlow(false)} />
+        {/* Two Column Layout: Transactions on left, Receipt Upload on right */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+          {/* Recent Transactions - Takes 2 columns on desktop */}
+          <div className="lg:col-span-2 fade-in delay-200">
+            <RecentTransactions />
           </div>
-        )}
+
+          {/* Receipt Upload Sidebar - Takes 1 column on desktop, full width on mobile */}
+          <div className="lg:col-span-1 fade-in delay-200">
+            <ReceiptUploadSidebar />
+          </div>
+        </div>
 
         {/* Analytics Section */}
         <div className="fade-in delay-400">

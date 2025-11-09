@@ -14,6 +14,7 @@ interface TransactionCardProps {
       quantity?: number
     }>
   }
+  onClick?: () => void
 }
 
 const getCategoryIcon = (category: string) => {
@@ -29,7 +30,7 @@ const getCategoryIcon = (category: string) => {
   }
 }
 
-export function TransactionCard({ transaction }: TransactionCardProps) {
+export function TransactionCard({ transaction, onClick }: TransactionCardProps) {
   const isCredit = transaction.type === "credit"
   const bgColor = isCredit ? "from-primary/10 to-primary/5" : "from-secondary/10 to-secondary/5"
   const textColor = isCredit ? "text-primary" : "text-secondary"
@@ -37,7 +38,10 @@ export function TransactionCard({ transaction }: TransactionCardProps) {
   const hasItems = transaction.items && transaction.items.length > 0
 
   return (
-    <div className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 transition-all duration-300 hover:shadow-lg hover:bg-white/90 dark:hover:bg-white/20 cursor-pointer p-4 rounded-2xl">
+    <div 
+      onClick={onClick}
+      className="backdrop-blur-xl bg-white/80 dark:bg-white/10 border border-white/20 dark:border-white/10 transition-all duration-300 hover:shadow-lg hover:bg-white/90 dark:hover:bg-white/20 cursor-pointer p-4 rounded-2xl"
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div

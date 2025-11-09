@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 
+
 export async function GET(request: Request) {
   // Get API key from environment variable (server-side only)
   const apiKey = process.env.NESSIE_API_KEY || request.headers.get("x-api-key")
+
 
   if (!apiKey) {
     console.error("API key is missing. Set NESSIE_API_KEY environment variable.")
@@ -12,11 +14,12 @@ export async function GET(request: Request) {
     )
   }
 
+
   try {
     // Use enterprise endpoint to get all customers
     const apiUrl = `http://api.nessieisreal.com/enterprise/customers?key=${apiKey}`
     console.log("Fetching enterprise customers from:", apiUrl.replace(apiKey, "***"))
-    
+   
     const response = await fetch(apiUrl, {
       headers: {
         "Content-Type": "application/json",
@@ -25,7 +28,9 @@ export async function GET(request: Request) {
       cache: "no-store",
     })
 
+
     console.log("API Response status:", response.status)
+
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -36,12 +41,13 @@ export async function GET(request: Request) {
       )
     }
 
+
     const responseData = await response.json()
     console.log("Enterprise customers fetched - type:", typeof responseData, "Is array:", Array.isArray(responseData))
-    
+   
     // Extract the customers array from the response
     let customersArray: any[] = []
-    
+   
     if (Array.isArray(responseData)) {
       customersArray = responseData
     } else if (responseData && typeof responseData === 'object') {
@@ -64,7 +70,7 @@ export async function GET(request: Request) {
         }
       }
     }
-    
+   
     console.log("Normalized customers array:", customersArray?.length || 0, "customers")
     return NextResponse.json(customersArray)
   } catch (error) {
@@ -75,3 +81,4 @@ export async function GET(request: Request) {
     )
   }
 }
+
