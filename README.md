@@ -1,4 +1,4 @@
-# 🧾 HackPrinceton - AI-Powered Receipt Processing
+# 🧾 HackPrinceton Project
 
 An intelligent receipt management system that automatically extracts, processes, and analyzes receipt data using **xAI Grok Vision** (from X/Twitter).
 
